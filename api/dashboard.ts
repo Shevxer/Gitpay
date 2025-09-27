@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createPublicClient, http } from 'viem';
 import { sepolia } from 'viem/chains';
 import { normalize } from 'viem/ens';
+import { fetchTransactionsForAddress, parseGitPayTransactionData, GitPayTransaction } from '../src/utils';
 
 // Create viem client for Sepolia
 const client = createPublicClient({
@@ -12,219 +13,6 @@ const client = createPublicClient({
 // PYUSD contract address on Sepolia testnet
 const PYUSD_CONTRACT = '0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9';
 
-// Interface for GitPay transaction data
-interface GitPayTransaction {
-  hash: string;
-  from: string;
-  to: string;
-  value: string;
-  blockNumber: string;
-  timestamp: number;
-  recipient: string;
-  amount: string;
-  memo?: string;
-  ens?: string;
-}
-
-// GitPay transaction identifier - hex for "GITPAY" (32 bytes = 64 hex chars)
-const GITPAY_IDENTIFIER = '0x4749545041590000000000000000000000000000000000000000000000000000';
-
-// Helper function to check if input data contains GitPay identifier
-function containsGitPayIdentifier(data: string): boolean {
-  // Check if the input data contains the GitPay identifier
-  // The identifier should be in the additional data after the standard transfer parameters
-  if (data.length > 138) {
-    const additionalData = data.slice(138);
-    const hasIdentifier = additionalData.includes(GITPAY_IDENTIFIER.slice(2)); // Remove 0x prefix
-    
-    // Debug logging
-    if (hasIdentifier) {
-      console.log(`🔍 Found GitPay identifier in transaction data:`, {
-        dataLength: data.length,
-        additionalData: additionalData.slice(0, 20) + '...',
-        identifier: GITPAY_IDENTIFIER.slice(2)
-      });
-    }
-    
-    return hasIdentifier;
-  }
-  return false;
-}
-
-// Helper function to check if this is a GitPay transaction based on input data analysis
-function isGitPayTransactionByInputData(data: string, tx: any): boolean {
-  // 1. Must be a standard ERC20 transfer
-  if (!data.startsWith('0xa9059cbb') || data.length < 138) {
-    return false;
-  }
-  
-  // 2. ONLY consider transactions that contain the GitPay identifier
-  const hasGitPayIdentifier = containsGitPayIdentifier(data);
-  
-  return hasGitPayIdentifier;
-}
-
-// Helper function to parse GitPay transaction data
-function parseGitPayTransactionData(data: string, tx?: any): { isGitPay: boolean; recipient?: string; amount?: string; memo?: string } {
-  if (!data || data.length < 138) { // Minimum length for standard transfer
-    return { isGitPay: false };
-  }
-  
-  // Check if it's a transfer function call
-  if (!data.startsWith('0xa9059cbb')) {
-    return { isGitPay: false };
-  }
-  
-  // Extract recipient address (bytes 4-35)
-  const recipientHex = data.slice(10, 74);
-  const recipient = '0x' + recipientHex.slice(24); // Remove padding
-  
-  // Extract amount (bytes 36-67)
-  const amountHex = data.slice(74, 138);
-  const amount = parseInt(amountHex, 16).toString();
-  
-  // Use the sophisticated GitPay detection logic
-  const isGitPay = isGitPayTransactionByInputData(data, tx);
-  
-  return {
-    isGitPay,
-    recipient,
-    amount,
-    memo: undefined // No memo support for now
-  };
-}
-
-// Helper function to fetch transactions for a specific address using Alchemy Asset Transfers API
-async function fetchTransactionsForAddress(address: string, limit: number = 100): Promise<GitPayTransaction[]> {
-  try {
-    console.log(`🔍 Fetching asset transfers for address: ${address}`);
-    
-    const url = `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
-    const headers = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    };
-
-    // Get transfers TO the address
-    const toAddressBody = JSON.stringify({
-      id: 1,
-      jsonrpc: "2.0",
-      method: "alchemy_getAssetTransfers",
-      params: [
-        {
-          fromBlock: "0x0",
-          toBlock: "latest",
-          toAddress: address,
-          withMetadata: true,
-          excludeZeroValue: true,
-          maxCount: "0x3e8", // 1000 transfers
-          category: ["erc20"]
-        }
-      ]
-    });
-
-    // Get transfers FROM the address
-    const fromAddressBody = JSON.stringify({
-      id: 1,
-      jsonrpc: "2.0",
-      method: "alchemy_getAssetTransfers",
-      params: [
-        {
-          fromBlock: "0x0",
-          toBlock: "latest",
-          fromAddress: address,
-          withMetadata: true,
-          excludeZeroValue: true,
-          maxCount: "0x3e8", // 1000 transfers
-          category: ["erc20"]
-        }
-      ]
-    });
-
-    // Fetch both TO and FROM transfers
-    const [toResponse, fromResponse] = await Promise.all([
-      fetch(url, { method: 'POST', headers, body: toAddressBody }),
-      fetch(url, { method: 'POST', headers, body: fromAddressBody })
-    ]);
-
-    const toData = await toResponse.json();
-    const fromData = await fromResponse.json();
-
-    if (toData.error) {
-      throw new Error(`Alchemy API error (to): ${toData.error.message}`);
-    }
-    if (fromData.error) {
-      throw new Error(`Alchemy API error (from): ${fromData.error.message}`);
-    }
-
-    const allTransfers = [
-      ...(toData.result?.transfers || []),
-      ...(fromData.result?.transfers || [])
-    ];
-
-    console.log(`📋 Found ${allTransfers.length} total asset transfers for address ${address}`);
-
-    // Filter for PYUSD transfers only
-    const pyusdTransfers = allTransfers.filter(transfer => 
-      transfer.rawContract?.address?.toLowerCase() === PYUSD_CONTRACT.toLowerCase()
-    );
-
-    console.log(`📋 Found ${pyusdTransfers.length} PYUSD transfers for address ${address}`);
-
-    const gitPayTransactions: GitPayTransaction[] = [];
-
-    // Process each transfer and check if it's actually a GitPay transaction
-    for (const transfer of pyusdTransfers.slice(0, limit)) {
-      try {
-        // Get the actual transaction to check its input data
-        const tx = await client.getTransaction({ hash: transfer.hash as `0x${string}` });
-        
-        if (tx.input) {
-          const parsed = parseGitPayTransactionData(tx.input, tx);
-          
-          console.log(`🔍 Checking transaction ${transfer.hash}:`, {
-            input: tx.input.slice(0, 20) + '...',
-            isGitPay: parsed.isGitPay,
-            recipient: parsed.recipient,
-            amount: parsed.amount
-          });
-          
-          // Only add if it's actually a GitPay transaction
-          if (parsed.isGitPay) {
-            const amount = transfer.value ? (parseFloat(transfer.value) * Math.pow(10, transfer.rawContract?.decimals || 6)).toString() : '0';
-            
-            gitPayTransactions.push({
-              hash: transfer.hash,
-              from: transfer.from,
-              to: transfer.to,
-              value: amount,
-              blockNumber: transfer.blockNum,
-              timestamp: new Date(transfer.metadata?.blockTimestamp).getTime(),
-              recipient: parsed.recipient || transfer.to,
-              amount: parsed.amount || amount,
-              memo: parsed.memo
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error processing transfer:', error);
-        continue;
-      }
-    }
-
-    console.log(`✅ Found ${gitPayTransactions.length} GitPay transactions for address ${address}`);
-    
-    // Sort by timestamp (newest first) and limit to last 10 transactions
-    const sortedTransactions = gitPayTransactions.sort((a, b) => b.timestamp - a.timestamp);
-    const limitedTransactions = sortedTransactions.slice(0, 10);
-    
-    console.log(`📊 Returning ${limitedTransactions.length} most recent GitPay transactions`);
-    return limitedTransactions;
-  } catch (error) {
-    console.error('Error fetching transactions for address:', error);
-    throw error;
-  }
-}
 
 // Helper function to get time ago string
 function getTimeAgo(timestamp: number): string {
@@ -254,10 +42,10 @@ function generateDashboardSVG(address: string, stats: {
   const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
   const displayName = ensName || shortAddress;
   const badgeWidth = 600;
-  const badgeHeight = 200;
+  const badgeHeight = 250;
   
-  // Get recent transactions for display
-  const recentTxs = recentTransactions?.slice(0, 3) || [];
+  // Get recent transactions for display (show 4 instead of 3)
+  const recentTxs = recentTransactions?.slice(0, 4) || [];
   
   return `
 <svg width="${badgeWidth}" height="${badgeHeight}" xmlns="http://www.w3.org/2000/svg">
@@ -314,7 +102,7 @@ function generateDashboardSVG(address: string, stats: {
   
   <!-- Recent Transactions -->
   ${recentTxs.length > 0 ? `
-  <g transform="translate(20, 140)">
+  <g transform="translate(20, 150)">
     <text x="0" y="15" font-family="Arial, sans-serif" font-size="14" fill="#e0e0e0" font-weight="bold">
       🔄 Recent Transactions
     </text>
@@ -336,11 +124,8 @@ function generateDashboardSVG(address: string, stats: {
   
   <!-- Footer -->
   <g transform="translate(15, ${badgeHeight - 20})">
-    <text x="0" y="15" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0">
-      Powered by GitPay
-    </text>
     <text x="${badgeWidth - 30}" y="15" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0" text-anchor="end">
-      gitpay.eth
+      Powered by GitPay
     </text>
   </g>
 </svg>`.trim();
