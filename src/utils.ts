@@ -47,73 +47,24 @@ export async function getPYUSDBalance(address: string): Promise<number> {
 // GitPay transaction identifier - hex for "GITPAY" (32 bytes = 64 hex chars)
 export const GITPAY_IDENTIFIER = '0x4749545041590000000000000000000000000000000000000000000000000000';
 
-// Known GitPay-related addresses or patterns
-const KNOWN_GITPAY_PATTERNS = [
-  // Add known GitPay contract addresses or patterns here
-  // For now, we'll use a more sophisticated detection method
-];
-
-// Known faucet and non-GitPay addresses that should be excluded
-const EXCLUDED_ADDRESSES = [
-  // Common faucet addresses on Sepolia
-  '0x742d35cc6634c0532925a3b8d0c0e1c4b5b5b5b5', // Example faucet (replace with actual)
-  // Add more known faucet addresses here
-];
-
-// Known DEX and DeFi contracts that should be excluded
-const EXCLUDED_DEX_CONTRACTS = [
-  '0x7a250d5630b4cf539739df2c5dacb4c659f2488d', // Uniswap V2 Router
-  '0xe592427a0aece92de3edee1f18e0157c05861564', // Uniswap V3 Router
-  '0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45', // Uniswap V3 Router 2
-  '0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f', // SushiSwap Router
-  '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506', // SushiSwap Router 2
-  '0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24', // Balancer V2 Vault
-];
-
-// Helper function to check if a transaction is likely a GitPay transaction
-function isLikelyGitPayTransaction(tx: any, recipient: string, amount: string): boolean {
-  // 1. Check if the transaction is from an excluded address (faucet, DEX, etc.)
-  const fromAddress = tx.from?.toLowerCase() || '';
-  const toAddress = tx.to?.toLowerCase() || '';
-  
-  if (EXCLUDED_ADDRESSES.includes(fromAddress) || 
-      EXCLUDED_DEX_CONTRACTS.includes(fromAddress) ||
-      EXCLUDED_DEX_CONTRACTS.includes(toAddress)) {
-    return false;
-  }
-  
-  // 2. Check for reasonable amounts (not dust, not too large)
-  const amountInWei = parseInt(amount, 16);
-  const amountInTokens = amountInWei / Math.pow(10, 6); // PYUSD has 6 decimals
-  const isReasonableAmount = amountInTokens >= 0.01 && amountInTokens <= 10000; // Between 0.01 and 10,000 PYUSD
-  
-  // 3. Check if the transaction input is exactly a standard transfer (no additional data)
-  const isStandardTransfer = tx.input && tx.input.length === 138; // Standard transfer length
-  
-  // 4. Additional GitPay-specific checks:
-  // - Check if the transaction is from a user wallet (not a contract)
-  // - Check if the transaction has reasonable gas usage
-  // - Check if the transaction is not from known faucet patterns
-  
-  // 5. For now, we'll be VERY conservative and only consider transactions that:
-  // - Are not from known excluded addresses
-  // - Have reasonable amounts
-  // - Are standard ERC20 transfers
-  // - Are not from known DEX contracts
-  // - Are from user wallets (not contracts)
-  
-  const isFromUserWallet = tx.from && tx.from.length === 42 && !tx.from.startsWith('0x0000000000000000000000000000000000000000');
-  
-  return isReasonableAmount && isStandardTransfer && isFromUserWallet;
-}
-
 // Helper function to check if input data contains GitPay identifier
 function containsGitPayIdentifier(data: string): boolean {
   // Check if the input data contains the GitPay identifier
   // The identifier should be in the additional data after the standard transfer parameters
   if (data.length > 138) {
     const additionalData = data.slice(138);
-    return additionalData.includes(GITPAY_IDENTIFIER.slice(2)); // Remove 0x prefix
+    const hasIdentifier = additionalData.includes(GITPAY_IDENTIFIER.slice(2)); // Remove 0x prefix
+    
+    // Debug logging
+    if (hasIdentifier) {
+      console.log(`🔍 Found GitPay identifier in transaction data:`, {
+        dataLength: data.length,
+        additionalData: additionalData.slice(0, 20) + '...',
+        identifier: GITPAY_IDENTIFIER.slice(2)
+      });
+    }
+    
+    return hasIdentifier;
   }
   return false;
 }
@@ -125,28 +76,10 @@ function isGitPayTransactionByInputData(data: string, tx: any): boolean {
     return false;
   }
   
-  // 2. For now, we'll be EXTREMELY conservative and only consider transactions that:
-  // - Are standard ERC20 transfers (exactly 138 characters)
-  // - Are not from known excluded addresses
-  // - Have reasonable amounts
-  // - Are not from known DEX contracts
-  // - Are from user wallets (not contracts)
+  // 2. ONLY consider transactions that contain the GitPay identifier
+  const hasGitPayIdentifier = containsGitPayIdentifier(data);
   
-  const isStandardTransfer = data.length === 138;
-  
-  if (!isStandardTransfer) {
-    return false;
-  }
-  
-  // 3. Apply additional GitPay-specific checks
-  if (tx) {
-    return isLikelyGitPayTransaction(tx, '', '');
-  }
-  
-  // 4. If no transaction object provided, be EXTREMELY conservative
-  // Only consider standard transfers for now, but we need the transaction object
-  // to do proper validation
-  return false; // Be very conservative - require transaction object
+  return hasGitPayIdentifier;
 }
 
 // Helper function to parse GitPay transaction data
@@ -602,9 +535,13 @@ export function generateDonationPageHTML(ens: string, address: string, amount: s
             const paddedRecipient = recipientAddress.slice(2).padStart(64, '0');
             const paddedAmount = parseInt(amountInWei).toString(16).padStart(64, '0');
             
-            // For now, we'll use standard ERC20 transfer without memo data
-            // GitPay transactions will be identified by other means (like transaction source)
-            return transferSignature + paddedRecipient + paddedAmount;
+            // Create standard ERC20 transfer data
+            const transferData = transferSignature + paddedRecipient + paddedAmount;
+            
+            // Add GitPay identifier to make it recognizable as a GitPay transaction
+            const gitpayIdentifier = GITPAY_IDENTIFIER.slice(2); // Remove 0x prefix
+            
+            return transferData + gitpayIdentifier;
         }
         
         console.log('Donation details:', {

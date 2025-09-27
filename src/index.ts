@@ -47,5 +47,6 @@ app.listen(PORT, () => {
   console.log(`   👤 By Address: http://localhost:${PORT}/api/transactions/0x...`);
   console.log(`\n🏷️ GitPay Dashboard APIs:`);
   console.log(`   👤 Dashboard: http://localhost:${PORT}/api/dashboard?address=0x...`);
+  console.log(`   👤 Dashboard (ENS): http://localhost:${PORT}/api/dashboard?ens=shevxer.eth`);
   console.log(`\n💡 Make sure to set ALCHEMY_API_KEY in your .env file`);
 });
