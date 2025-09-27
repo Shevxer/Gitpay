@@ -107,13 +107,19 @@ export function healthCheck(req: Request, res: Response) {
   res.json({ 
     message: 'GitPay API is running!', 
     endpoints: [
-      'GET /api/ens-stats?ens=yourname.eth',
-      'GET /api/donate?ens=yourname.eth&amount=10',
-      'GET /api/transactions - Get all GitPay transactions',
-      'GET /api/transactions/:address - Get transactions for specific address',
-      'GET /api/transactions/stats - Get transaction statistics',
-      'GET /api/transactions/recent - Get recent transactions'
-    ]
+      'GET /api/ens-stats?ens=yourname.eth - Get ENS stats and PYUSD balance as SVG',
+      'GET /api/donate?ens=yourname.eth&amount=10 - Generate donation button SVG',
+      'GET /api/dashboard?ens=yourname.eth - Get transaction dashboard SVG',
+      'GET /api/dashboard?address=0x... - Get transaction dashboard SVG by address',
+      'GET /api/transactions - Get all GitPay transactions (localhost only)',
+      'GET /api/transactions/:address - Get transactions for specific address (localhost only)',
+      'GET /api/transactions/stats - Get transaction statistics (localhost only)',
+      'GET /api/transactions/recent - Get recent transactions (localhost only)'
+    ],
+    description: 'GitPay - ENS to PYUSD balance and donation buttons for GitHub READMEs',
+    network: 'Sepolia Testnet',
+    version: '1.0.0',
+    note: 'Transaction APIs are only available in localhost development mode'
   });
 }
 
