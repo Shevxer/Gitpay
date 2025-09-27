@@ -49,66 +49,73 @@ export const GITPAY_IDENTIFIER = '0x47495450415900000000000000000000000000000000
 
 // Helper function to check if input data contains GitPay identifier
 function containsGitPayIdentifier(data: string): boolean {
-  // Check if the input data contains the GitPay identifier
-  // The identifier should be in the additional data after the standard transfer parameters
-  if (data.length > 138) {
-    const additionalData = data.slice(138);
-    const hasIdentifier = additionalData.includes(GITPAY_IDENTIFIER.slice(2)); // Remove 0x prefix
-    
-    // Debug logging
-    if (hasIdentifier) {
-      console.log(`🔍 Found GitPay identifier in transaction data:`, {
-        dataLength: data.length,
-        additionalData: additionalData.slice(0, 20) + '...',
-        identifier: GITPAY_IDENTIFIER.slice(2)
-      });
-    }
-    
-    return hasIdentifier;
-  }
-  return false;
+  // Simply check if the GitPay identifier exists anywhere in the input data
+  const hasIdentifier = data.includes(GITPAY_IDENTIFIER.slice(2)); // Remove 0x prefix
+  
+  console.log(`🔍 Checking GitPay identifier:`, {
+    dataLength: data.length,
+    hasIdentifier: hasIdentifier
+  });
+  
+  return hasIdentifier;
 }
 
 // Helper function to check if this is a GitPay transaction based on input data analysis
 function isGitPayTransactionByInputData(data: string, tx: any): boolean {
-  // 1. Must be a standard ERC20 transfer
-  if (!data.startsWith('0xa9059cbb') || data.length < 138) {
-    return false;
-  }
-  
-  // 2. ONLY consider transactions that contain the GitPay identifier
-  const hasGitPayIdentifier = containsGitPayIdentifier(data);
-  
-  return hasGitPayIdentifier;
+  // Only check if the input data contains the GitPay identifier
+  return containsGitPayIdentifier(data);
 }
 
 // Helper function to parse GitPay transaction data
 export function parseGitPayTransactionData(data: string, tx?: any): { isGitPay: boolean; recipient?: string; amount?: string; memo?: string } {
-  if (!data || data.length < 138) { // Minimum length for standard transfer
+  if (!data) {
     return { isGitPay: false };
   }
   
-  // Check if it's a transfer function call
-  if (!data.startsWith('0xa9059cbb')) {
+  // Check if it's a GitPay transaction by looking for the identifier
+  const isGitPay = containsGitPayIdentifier(data);
+  
+  // If it's not a GitPay transaction, return early
+  if (!isGitPay) {
     return { isGitPay: false };
   }
   
-  // Extract recipient address (bytes 4-35)
-  const recipientHex = data.slice(10, 74);
-  const recipient = '0x' + recipientHex.slice(24); // Remove padding
+  // Try to extract recipient and amount if it looks like a transfer
+  let recipient: string | undefined = undefined;
+  let amount: string | undefined = undefined;
   
-  // Extract amount (bytes 36-67)
-  const amountHex = data.slice(74, 138);
-  const amount = parseInt(amountHex, 16).toString();
+  if (data.startsWith('0xa9059cbb') && data.length >= 138) {
+    // Extract recipient address (bytes 4-35)
+    const recipientHex = data.slice(10, 74);
+    recipient = '0x' + recipientHex.slice(24); // Remove padding
+    
+    // Extract amount (bytes 36-67)
+    const amountHex = data.slice(74, 138);
+    amount = parseInt(amountHex, 16).toString();
+  }
   
-  // Use the sophisticated GitPay detection logic
-  const isGitPay = isGitPayTransactionByInputData(data, tx);
+  // Parse memo from the 32-byte GitPay identifier if present
+  let memo: string | undefined = undefined;
+  if (data.length >= 202) {
+    // The memo is in the 32-byte identifier after "GITPAY"
+    const identifierHex = data.slice(138, 202);
+    if (identifierHex.startsWith('474954504159')) { // "GITPAY" in hex
+      // Extract the remaining bytes as memo (after "GITPAY" which is 12 hex chars)
+      const memoHex = identifierHex.slice(12);
+      if (memoHex && memoHex !== '0000000000000000000000000000000000000000000000000000000000000000') {
+        // Convert hex to string, removing null bytes
+        const memoBytes = Buffer.from(memoHex, 'hex');
+        memo = memoBytes.toString('utf8').replace(/\0/g, '').trim();
+        if (memo === '') memo = undefined;
+      }
+    }
+  }
   
   return {
     isGitPay,
     recipient,
     amount,
-    memo: undefined // No memo support for now
+    memo
   };
 }
 
@@ -194,10 +201,15 @@ export async function fetchTransactionsForAddress(address: string, limit: number
       ...(fromData.result?.transfers || [])
     ];
 
-    console.log(`📋 Found ${allTransfers.length} total asset transfers for address ${address}`);
+    // Remove duplicates based on transaction hash
+    const uniqueTransfers = allTransfers.filter((transfer, index, self) => 
+      index === self.findIndex(t => t.hash === transfer.hash)
+    );
+
+    console.log(`📋 Found ${allTransfers.length} total asset transfers, ${uniqueTransfers.length} unique for address ${address}`);
 
     // Filter for PYUSD transfers only
-    const pyusdTransfers = allTransfers.filter(transfer => 
+    const pyusdTransfers = uniqueTransfers.filter(transfer => 
       transfer.rawContract?.address?.toLowerCase() === PYUSD_CONTRACT.toLowerCase()
     );
 
@@ -208,6 +220,14 @@ export async function fetchTransactionsForAddress(address: string, limit: number
     // Process each transfer and check if it's actually a GitPay transaction
     for (const transfer of pyusdTransfers.slice(0, limit)) {
       try {
+        console.log(`🔍 Processing transfer ${transfer.hash}:`, {
+          from: transfer.from,
+          to: transfer.to,
+          value: transfer.value,
+          isToAddress: transfer.to.toLowerCase() === address.toLowerCase(),
+          isFromAddress: transfer.from.toLowerCase() === address.toLowerCase()
+        });
+        
         // Get the actual transaction to check its input data
         const tx = await client.getTransaction({ hash: transfer.hash as `0x${string}` });
         
@@ -215,15 +235,19 @@ export async function fetchTransactionsForAddress(address: string, limit: number
           const parsed = parseGitPayTransactionData(tx.input, tx);
           
           console.log(`🔍 Checking transaction ${transfer.hash}:`, {
-            input: tx.input.slice(0, 20) + '...',
+            inputLength: tx.input.length,
+            input: tx.input.slice(0, 50) + '...',
             isGitPay: parsed.isGitPay,
             recipient: parsed.recipient,
-            amount: parsed.amount
+            amount: parsed.amount,
+            memo: parsed.memo
           });
           
           // Only add if it's actually a GitPay transaction
           if (parsed.isGitPay) {
             const amount = transfer.value ? (parseFloat(transfer.value) * Math.pow(10, transfer.rawContract?.decimals || 6)).toString() : '0';
+            
+            console.log(`✅ Adding GitPay transaction ${transfer.hash} to results`);
             
             gitPayTransactions.push({
               hash: transfer.hash,
@@ -236,7 +260,11 @@ export async function fetchTransactionsForAddress(address: string, limit: number
               amount: parsed.amount || amount,
               memo: parsed.memo
             });
+          } else {
+            console.log(`❌ Transaction ${transfer.hash} is not a GitPay transaction`);
           }
+        } else {
+          console.log(`❌ Transaction ${transfer.hash} has no input data`);
         }
       } catch (error) {
         console.error('Error processing transfer:', error);
@@ -377,10 +405,10 @@ export function generateAddressBadgeSVG(address: string, stats: {
   const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
   const displayName = ensName || shortAddress;
   const badgeWidth = 600;
-  const badgeHeight = 200;
+  const badgeHeight = 250;
   
-  // Get recent transactions for display
-  const recentTxs = recentTransactions?.slice(0, 3) || [];
+  // Get recent transactions for display (show 4 instead of 3)
+  const recentTxs = recentTransactions?.slice(0, 4) || [];
   
   return `
 <svg width="${badgeWidth}" height="${badgeHeight}" xmlns="http://www.w3.org/2000/svg">
@@ -401,7 +429,7 @@ export function generateAddressBadgeSVG(address: string, stats: {
   <!-- Header -->
   <rect width="${badgeWidth}" height="50" fill="url(#headerBg)" rx="12"/>
   <text x="15" y="30" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white">
-    👤 GitPay Address Stats
+    📊 GitPay Dashboard
   </text>
   <text x="${badgeWidth - 15}" y="30" font-family="monospace" font-size="14" fill="#e0e0e0" text-anchor="end">
     ${displayName}
@@ -437,7 +465,7 @@ export function generateAddressBadgeSVG(address: string, stats: {
   
   <!-- Recent Transactions -->
   ${recentTxs.length > 0 ? `
-  <g transform="translate(20, 140)">
+  <g transform="translate(20, 150)">
     <text x="0" y="15" font-family="Arial, sans-serif" font-size="14" fill="#e0e0e0" font-weight="bold">
       🔄 Recent Transactions
     </text>
@@ -459,11 +487,8 @@ export function generateAddressBadgeSVG(address: string, stats: {
   
   <!-- Footer -->
   <g transform="translate(15, ${badgeHeight - 20})">
-    <text x="0" y="15" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0">
-      Powered by GitPay
-    </text>
     <text x="${badgeWidth - 30}" y="15" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0" text-anchor="end">
-      gitpay.eth
+      Powered by GitPay
     </text>
   </g>
 </svg>`.trim();
