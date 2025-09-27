@@ -297,12 +297,13 @@ app.get('/donate', async (req, res) => {
     }
 
     const amountInWei = (parseFloat(amount as string) * 1000000).toString(); // PYUSD has 6 decimals
+    console.log(`Amount: ${amount}, Amount in Wei: ${amountInWei}`);
 
     const html = `
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Donate to ${ens}</title>
+    <title>Donate to ${ens} - Sepolia Testnet</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -327,6 +328,9 @@ app.get('/donate', async (req, res) => {
             <div class="amount">${amount} PYUSD</div>
             <p>to <strong>${ens}</strong></p>
             <div class="address">${address}</div>
+            <p style="color: #666; font-size: 14px; margin-top: 10px;">
+                🌐 <strong>Sepolia Testnet</strong> - Test tokens only
+            </p>
         </div>
         
         <div id="status"></div>
@@ -336,7 +340,7 @@ app.get('/donate', async (req, res) => {
         </button>
         
         <p style="text-align: center; color: #666; font-size: 14px;">
-            This will open MetaMask and handle the approval + transfer automatically
+            This will open MetaMask and send PYUSD directly 
         </p>
     </div>
 
@@ -345,6 +349,16 @@ app.get('/donate', async (req, res) => {
         const RECIPIENT_ADDRESS = '${address}';
         const AMOUNT = '${amountInWei}';
         const AMOUNT_DISPLAY = '${amount}';
+        const CHAIN_ID = '0xaa36a7'; // Sepolia testnet chain ID
+        
+        console.log('Donation details:', {
+            contract: PYUSD_CONTRACT,
+            recipient: RECIPIENT_ADDRESS,
+            amount: AMOUNT,
+            displayAmount: AMOUNT_DISPLAY,
+            amountAsNumber: parseInt(AMOUNT),
+            amountAsHex: parseInt(AMOUNT).toString(16)
+        });
         
         function showStatus(message, type = 'info') {
             const statusDiv = document.getElementById('status');
@@ -366,6 +380,38 @@ app.get('/donate', async (req, res) => {
             try {
                 showStatus('🔗 Connecting to MetaMask...', 'info');
                 
+                // Check if we're on the correct network (Sepolia)
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                if (chainId !== CHAIN_ID) {
+                    showStatus('🔄 Switching to Sepolia testnet...', 'info');
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: CHAIN_ID }],
+                        });
+                    } catch (switchError) {
+                        // If Sepolia is not added, add it
+                        if (switchError.code === 4902) {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: CHAIN_ID,
+                                    chainName: 'Sepolia Test Network',
+                                    rpcUrls: ['https://sepolia.infura.io/v3/'],
+                                    nativeCurrency: {
+                                        name: 'SepoliaETH',
+                                        symbol: 'SepoliaETH',
+                                        decimals: 18
+                                    },
+                                    blockExplorerUrls: ['https://sepolia.etherscan.io']
+                                }]
+                            });
+                        } else {
+                            throw switchError;
+                        }
+                    }
+                }
+                
                 // Request account access
                 const accounts = await window.ethereum.request({ 
                     method: 'eth_requestAccounts' 
@@ -374,48 +420,15 @@ app.get('/donate', async (req, res) => {
                 
                 showStatus('✅ Connected: ' + userAddress.slice(0, 6) + '...' + userAddress.slice(-4), 'success');
                 
-                // Check current allowance
-                showStatus('🔍 Checking current allowance...', 'info');
-                
-                const allowanceData = {
-                    to: PYUSD_CONTRACT,
-                    data: '0xdd62ed3e' + userAddress.slice(2).padStart(64, '0') + RECIPIENT_ADDRESS.slice(2).padStart(64, '0')
-                };
-                
-                const allowance = await window.ethereum.request({
-                    method: 'eth_call',
-                    params: [allowanceData, 'latest']
-                });
-                
-                const currentAllowance = parseInt(allowance, 16);
-                const requiredAmount = parseInt(AMOUNT);
-                
-                // Step 1: Approve if needed
-                if (currentAllowance < requiredAmount) {
-                    showStatus('📝 Approval needed. Sending approval transaction...', 'info');
-                    
-                    const approveData = '0x095ea7b3' + RECIPIENT_ADDRESS.slice(2).padStart(64, '0') + AMOUNT.padStart(64, '0');
-                    
-                    const approveTx = await window.ethereum.request({
-                        method: 'eth_sendTransaction',
-                        params: [{
-                            from: userAddress,
-                            to: PYUSD_CONTRACT,
-                            data: approveData
-                        }]
-                    });
-                    
-                    showStatus('⏳ Approval transaction sent: ' + approveTx.slice(0, 10) + '... Please wait for confirmation.', 'info');
-                    
-                    // Wait for approval confirmation
-                    await waitForTransaction(approveTx);
-                    showStatus('✅ Approval confirmed!', 'success');
-                }
-                
-                // Step 2: Transfer tokens
+                // Direct transfer (no approval needed for direct transfers)
                 showStatus('💸 Sending donation...', 'info');
                 
-                const transferData = '0xa9059cbb' + RECIPIENT_ADDRESS.slice(2).padStart(64, '0') + AMOUNT.padStart(64, '0');
+                // Convert amount to hex and pad properly
+                const amountHex = parseInt(AMOUNT).toString(16).padStart(64, '0');
+                console.log('Amount in hex:', amountHex);
+                console.log('Amount as number:', parseInt(AMOUNT));
+                
+                const transferData = '0xa9059cbb' + RECIPIENT_ADDRESS.slice(2).padStart(64, '0') + amountHex;
                 
                 const transferTx = await window.ethereum.request({
                     method: 'eth_sendTransaction',
