@@ -1,5 +1,33 @@
 import { alchemyRpcUrl, PYUSD_CONTRACT, client } from './config';
 
+// Helper function to resolve multiple addresses to ENS names
+export async function resolveAddressesToENS(addresses: string[]): Promise<Map<string, string | null>> {
+  const ensMap = new Map<string, string | null>();
+  
+  // Process addresses in parallel with a reasonable concurrency limit
+  const batchSize = 5;
+  for (let i = 0; i < addresses.length; i += batchSize) {
+    const batch = addresses.slice(i, i + batchSize);
+    
+    const promises = batch.map(async (address) => {
+      try {
+        const ensName = await client.getEnsName({ address: address as `0x${string}` });
+        return { address, ensName };
+      } catch (error) {
+        console.warn(`⚠️ Could not resolve ENS for ${address}:`, error);
+        return { address, ensName: null };
+      }
+    });
+    
+    const results = await Promise.all(promises);
+    results.forEach(({ address, ensName }) => {
+      ensMap.set(address.toLowerCase(), ensName);
+    });
+  }
+  
+  return ensMap;
+}
+
 // Helper function to get PYUSD balance using Alchemy RPC
 export async function getPYUSDBalance(address: string): Promise<number> {
   const url = alchemyRpcUrl;
@@ -396,12 +424,12 @@ function getTimeAgo(timestamp: number): string {
 }
 
 // Helper function to generate address-specific GitPay badge
-export function generateAddressBadgeSVG(address: string, stats: {
+export async function generateAddressBadgeSVG(address: string, stats: {
   totalReceived: number;
   totalDonated: number;
   receivedCount: number;
   donatedCount: number;
-}, ensName?: string | null, recentTransactions?: GitPayTransaction[]): string {
+}, ensName?: string | null, recentTransactions?: GitPayTransaction[]): Promise<string> {
   const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
   const displayName = ensName || shortAddress;
   const badgeWidth = 600;
@@ -409,6 +437,15 @@ export function generateAddressBadgeSVG(address: string, stats: {
   
   // Get recent transactions for display (show 4 instead of 3)
   const recentTxs = recentTransactions?.slice(0, 4) || [];
+  
+  // Resolve ENS names for all addresses in recent transactions
+  const allAddresses = new Set<string>();
+  recentTxs.forEach(tx => {
+    allAddresses.add(tx.from.toLowerCase());
+    allAddresses.add(tx.recipient.toLowerCase());
+  });
+  
+  const ensMap = await resolveAddressesToENS(Array.from(allAddresses));
   
   return `
 <svg width="${badgeWidth}" height="${badgeHeight}" xmlns="http://www.w3.org/2000/svg">
@@ -474,11 +511,14 @@ export function generateAddressBadgeSVG(address: string, stats: {
       const amount = (parseFloat(tx.amount) / 1000000).toFixed(2);
       const timeAgo = getTimeAgo(tx.timestamp);
       const otherAddress = isReceived ? tx.from : tx.recipient;
-      const otherShort = `${otherAddress.slice(0, 6)}...${otherAddress.slice(-4)}`;
+      
+      // Get ENS name or fallback to shortened address
+      const ensName = ensMap.get(otherAddress.toLowerCase());
+      const otherDisplay = ensName || `${otherAddress.slice(0, 6)}...${otherAddress.slice(-4)}`;
       
       return `
         <text x="0" y="${35 + i * 15}" font-family="Arial, sans-serif" font-size="11" fill="${isReceived ? '#4ade80' : '#f59e0b'}">
-          ${isReceived ? '📥' : '📤'} ${amount} PYUSD ${isReceived ? 'from' : 'to'} ${otherShort} (${timeAgo})
+          ${isReceived ? '📥' : '📤'} ${amount} PYUSD ${isReceived ? 'from' : 'to'} ${otherDisplay} (${timeAgo})
         </text>
       `;
     }).join('')}

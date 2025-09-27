@@ -445,7 +445,7 @@ export async function gitPayDashboard(req: Request, res: Response) {
     
     console.log(`📊 Stats: Received ${stats.totalReceived.toFixed(2)} PYUSD (${stats.receivedCount} txns), Donated ${stats.totalDonated.toFixed(2)} PYUSD (${stats.donatedCount} txns)`);
     
-    const svg = generateAddressBadgeSVG(resolvedAddress, stats, ensName, transactions);
+    const svg = await generateAddressBadgeSVG(resolvedAddress, stats, ensName, transactions);
     
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=60'); // Cache for 1 minute
@@ -507,7 +507,7 @@ export async function gitPayAddressBadge(req: Request, res: Response) {
     
     console.log(`📊 Stats: Received ${stats.totalReceived.toFixed(2)} PYUSD (${stats.receivedCount} txns), Donated ${stats.totalDonated.toFixed(2)} PYUSD (${stats.donatedCount} txns)`);
     
-    const svg = generateAddressBadgeSVG(address, stats, ensName, transactions);
+    const svg = await generateAddressBadgeSVG(address, stats, ensName, transactions);
     
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=60'); // Cache for 1 minute

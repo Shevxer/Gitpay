@@ -2,7 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createPublicClient, http } from 'viem';
 import { sepolia } from 'viem/chains';
 import { normalize } from 'viem/ens';
-import { fetchTransactionsForAddress, parseGitPayTransactionData, GitPayTransaction } from '../src/utils';
+import { fetchTransactionsForAddress, parseGitPayTransactionData, GitPayTransaction, generateAddressBadgeSVG } from '../src/utils';
 
 // Create viem client for Sepolia
 const client = createPublicClient({
@@ -32,104 +32,6 @@ function getTimeAgo(timestamp: number): string {
   }
 }
 
-// Helper function to generate dashboard SVG
-function generateDashboardSVG(address: string, stats: {
-  totalReceived: number;
-  totalDonated: number;
-  receivedCount: number;
-  donatedCount: number;
-}, ensName?: string | null, recentTransactions?: GitPayTransaction[]): string {
-  const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
-  const displayName = ensName || shortAddress;
-  const badgeWidth = 600;
-  const badgeHeight = 250;
-  
-  // Get recent transactions for display (show 4 instead of 3)
-  const recentTxs = recentTransactions?.slice(0, 4) || [];
-  
-  return `
-<svg width="${badgeWidth}" height="${badgeHeight}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="addressBg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1e293b;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#0f172a;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="headerBg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  
-  <!-- Background -->
-  <rect width="${badgeWidth}" height="${badgeHeight}" fill="url(#addressBg)" rx="12"/>
-  
-  <!-- Header -->
-  <rect width="${badgeWidth}" height="50" fill="url(#headerBg)" rx="12"/>
-  <text x="15" y="30" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white">
-    📊 GitPay Dashboard
-  </text>
-  <text x="${badgeWidth - 15}" y="30" font-family="monospace" font-size="14" fill="#e0e0e0" text-anchor="end">
-    ${displayName}
-  </text>
-  
-  <!-- Address (if ENS name is shown) -->
-  ${ensName ? `<text x="${badgeWidth - 15}" y="45" font-family="monospace" font-size="10" fill="#a0a0a0" text-anchor="end">${shortAddress}</text>` : ''}
-  
-  <!-- Stats Grid -->
-  <g transform="translate(20, 70)">
-    <!-- Received Section -->
-    <text x="0" y="20" font-family="Arial, sans-serif" font-size="14" fill="#4ade80" font-weight="bold">
-      📥 Received
-    </text>
-    <text x="0" y="40" font-family="Arial, sans-serif" font-size="20" fill="#4ade80" font-weight="bold">
-      ${stats.totalReceived.toFixed(2)} PYUSD
-    </text>
-    <text x="0" y="55" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0">
-      ${stats.receivedCount} donations
-    </text>
-    
-    <!-- Donated Section -->
-    <text x="200" y="20" font-family="Arial, sans-serif" font-size="14" fill="#f59e0b" font-weight="bold">
-      📤 Donated
-    </text>
-    <text x="200" y="40" font-family="Arial, sans-serif" font-size="20" fill="#f59e0b" font-weight="bold">
-      ${stats.totalDonated.toFixed(2)} PYUSD
-    </text>
-    <text x="200" y="55" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0">
-      ${stats.donatedCount} donations
-    </text>
-  </g>
-  
-  <!-- Recent Transactions -->
-  ${recentTxs.length > 0 ? `
-  <g transform="translate(20, 150)">
-    <text x="0" y="15" font-family="Arial, sans-serif" font-size="14" fill="#e0e0e0" font-weight="bold">
-      🔄 Recent Transactions
-    </text>
-    ${recentTxs.map((tx, i) => {
-      const isReceived = tx.recipient.toLowerCase() === address.toLowerCase();
-      const amount = (parseFloat(tx.amount) / 1000000).toFixed(2);
-      const timeAgo = getTimeAgo(tx.timestamp);
-      const otherAddress = isReceived ? tx.from : tx.recipient;
-      const otherShort = `${otherAddress.slice(0, 6)}...${otherAddress.slice(-4)}`;
-      
-      return `
-        <text x="0" y="${35 + i * 15}" font-family="Arial, sans-serif" font-size="11" fill="${isReceived ? '#4ade80' : '#f59e0b'}">
-          ${isReceived ? '📥' : '📤'} ${amount} PYUSD ${isReceived ? 'from' : 'to'} ${otherShort} (${timeAgo})
-        </text>
-      `;
-    }).join('')}
-  </g>
-  ` : ''}
-  
-  <!-- Footer -->
-  <g transform="translate(15, ${badgeHeight - 20})">
-    <text x="${badgeWidth - 30}" y="15" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0" text-anchor="end">
-      Powered by GitPay
-    </text>
-  </g>
-</svg>`.trim();
-}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers
@@ -210,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`📊 Stats: Received ${stats.totalReceived.toFixed(2)} PYUSD (${stats.receivedCount} txns), Donated ${stats.totalDonated.toFixed(2)} PYUSD (${stats.donatedCount} txns)`);
     
     // Step 4: Generate dashboard SVG
-    const svg = generateDashboardSVG(resolvedAddress, stats, ensName, transactions);
+    const svg = await generateAddressBadgeSVG(resolvedAddress, stats, ensName, transactions);
 
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=60'); // Cache for 1 minute
