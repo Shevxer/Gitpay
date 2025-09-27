@@ -186,26 +186,25 @@ async function fetchTransactionsForAddress(address: string, limit: number = 100)
             input: tx.input.slice(0, 20) + '...',
             isGitPay: parsed.isGitPay,
             recipient: parsed.recipient,
-            amount: parsed.amount,
-            transferFrom: transfer.from,
-            transferTo: transfer.to
+            amount: parsed.amount
           });
           
-          // For now, let's be more lenient and include all PYUSD transfers
-          // This will help debug the counting issue
-          const amount = transfer.value ? (parseFloat(transfer.value) * Math.pow(10, transfer.rawContract?.decimals || 6)).toString() : '0';
-          
-          gitPayTransactions.push({
-            hash: transfer.hash,
-            from: transfer.from,
-            to: transfer.to,
-            value: amount,
-            blockNumber: transfer.blockNum,
-            timestamp: new Date(transfer.metadata?.blockTimestamp).getTime(),
-            recipient: parsed.recipient || transfer.to,
-            amount: parsed.amount || amount,
-            memo: parsed.memo
-          });
+          // Only add if it's actually a GitPay transaction
+          if (parsed.isGitPay) {
+            const amount = transfer.value ? (parseFloat(transfer.value) * Math.pow(10, transfer.rawContract?.decimals || 6)).toString() : '0';
+            
+            gitPayTransactions.push({
+              hash: transfer.hash,
+              from: transfer.from,
+              to: transfer.to,
+              value: amount,
+              blockNumber: transfer.blockNum,
+              timestamp: new Date(transfer.metadata?.blockTimestamp).getTime(),
+              recipient: parsed.recipient || transfer.to,
+              amount: parsed.amount || amount,
+              memo: parsed.memo
+            });
+          }
         }
       } catch (error) {
         console.error('Error processing transfer:', error);
@@ -215,18 +214,8 @@ async function fetchTransactionsForAddress(address: string, limit: number = 100)
 
     console.log(`✅ Found ${gitPayTransactions.length} GitPay transactions for address ${address}`);
     
-    // Remove duplicates based on transaction hash
-    const uniqueTransactions = gitPayTransactions.reduce((acc, tx) => {
-      if (!acc.find(existing => existing.hash === tx.hash)) {
-        acc.push(tx);
-      }
-      return acc;
-    }, [] as GitPayTransaction[]);
-    
-    console.log(`🔄 After deduplication: ${uniqueTransactions.length} unique transactions`);
-    
     // Sort by timestamp (newest first) and limit to last 10 transactions
-    const sortedTransactions = uniqueTransactions.sort((a, b) => b.timestamp - a.timestamp);
+    const sortedTransactions = gitPayTransactions.sort((a, b) => b.timestamp - a.timestamp);
     const limitedTransactions = sortedTransactions.slice(0, 10);
     
     console.log(`📊 Returning ${limitedTransactions.length} most recent GitPay transactions`);
@@ -425,16 +414,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const donatedTransactions = transactions.filter(tx => 
       tx.from.toLowerCase() === resolvedAddress.toLowerCase()
     );
-    
-    console.log(`🔍 Transaction analysis for ${resolvedAddress}:`);
-    console.log(`   Total transactions: ${transactions.length}`);
-    console.log(`   Received transactions: ${receivedTransactions.length}`);
-    console.log(`   Donated transactions: ${donatedTransactions.length}`);
-    
-    // Log each transaction for debugging
-    transactions.forEach((tx, i) => {
-      console.log(`   TX ${i + 1}: ${tx.from} -> ${tx.recipient} (${tx.amount} PYUSD)`);
-    });
     
     const stats = {
       totalReceived: receivedTransactions.reduce((sum, tx) => sum + parseFloat(tx.amount) / 1000000, 0),
