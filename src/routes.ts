@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { client } from './config';
+import { client, normalize } from './config';
 import { 
   getPYUSDBalance, 
   generateDonationPageHTML,
@@ -137,7 +137,7 @@ export async function ensStats(req: Request, res: Response) {
     } else {
       // It's an ENS name, resolve it
       console.log(`🔍 Resolving ENS: ${ens}`);
-      const resolvedAddress = await client.getEnsAddress({ name: ens });
+      const resolvedAddress = await client.getEnsAddress({ name: normalize(ens) });
       console.log(`📍 Resolved address: ${resolvedAddress}`);
       
       if (!resolvedAddress) {
@@ -180,7 +180,7 @@ export async function donate(req: Request, res: Response) {
       address = ens;
     } else {
       // It's an ENS name, resolve it
-      const resolvedAddress = await client.getEnsAddress({ name: ens });
+      const resolvedAddress = await client.getEnsAddress({ name: normalize(ens) });
       
       if (!resolvedAddress) {
         return res.status(404).json({ error: 'ENS name not found' });

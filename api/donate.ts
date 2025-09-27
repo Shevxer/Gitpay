@@ -1,6 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createPublicClient, http } from 'viem';
 import { sepolia } from 'viem/chains';
+import { normalize } from 'viem/ens';
 
 // Create viem client for Sepolia
 const client = createPublicClient({
@@ -31,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Resolve ENS to address
-    const address = await client.getEnsAddress({ name: ens });
+    const address = await client.getEnsAddress({ name: normalize(ens) });
     
     if (!address) {
       return res.status(404).json({ error: 'ENS name not found' });

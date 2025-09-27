@@ -1,6 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createPublicClient, http } from 'viem';
 import { sepolia } from 'viem/chains';
+import { normalize } from 'viem/ens';
 
 // PYUSD contract address on Sepolia testnet
 const PYUSD_CONTRACT = '0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9';
@@ -52,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Step 1: Resolve ENS to address
-    const address = await client.getEnsAddress({ name: ens });
+    const address = await client.getEnsAddress({ name: normalize(ens) });
     
     if (!address) {
       return res.status(404).json({ error: 'ENS name not found' });

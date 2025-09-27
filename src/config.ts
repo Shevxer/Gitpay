@@ -1,5 +1,6 @@
 import { createPublicClient, http } from 'viem';
 import { sepolia } from 'viem/chains';
+import { normalize } from 'viem/ens';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -29,4 +30,4 @@ export const client = createPublicClient({
   transport: http(alchemyUrl),
 });
 
-export { alchemyUrl as alchemyRpcUrl };
+export { alchemyUrl as alchemyRpcUrl, normalize };
