@@ -46,6 +46,7 @@ vercel dev
 Your API will be available at:
 - `http://localhost:3000/api/ens-stats?ens=yourname.eth`
 - `http://localhost:3000/api/donate?ens=yourname.eth&amount=10`
+- `http://localhost:3000/api/dashboard?ens=yourname.eth` (or `?address=0x...`)
 
 ### 4. Deploy to Vercel
 
@@ -92,6 +93,28 @@ GET /api/donate?ens=vitalik.eth&amount=25&method=pyusd
 
 **Response:** SVG donation button
 
+### `/api/dashboard`
+
+Generate a comprehensive dashboard SVG showing sent/received amounts and recent transactions.
+
+**Parameters:**
+- `ens` (optional): ENS name (e.g., `vitalik.eth`)
+- `address` (optional): Ethereum address (e.g., `0x...`)
+
+**Note:** Either `ens` or `address` must be provided.
+
+**Example:**
+```
+GET /api/dashboard?ens=vitalik.eth
+GET /api/dashboard?address=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
+```
+
+**Response:** SVG dashboard showing:
+- ENS name (if resolvable) and address
+- Total received PYUSD amount and count
+- Total donated PYUSD amount and count
+- Recent transaction history
+
 ## 🎨 GitHub README Integration
 
 ### Stats Card
@@ -108,6 +131,14 @@ Add this to encourage donations:
 
 ```markdown
 [![Donate PYUSD](https://your-app.vercel.app/api/donate?ens=yourname.eth&amount=10)](ethereum:0xYourAddress@1?value=0&address=0xYourAddress&uint256=10000000)
+```
+
+### Dashboard
+
+Add this to show a comprehensive transaction dashboard:
+
+```markdown
+[![GitPay Dashboard](https://your-app.vercel.app/api/dashboard?ens=yourname.eth)](https://sepolia.etherscan.io/address/0xYourAddress)
 ```
 
 ## 🔧 Configuration
@@ -138,7 +169,8 @@ Currently configured for **Sepolia testnet**. To change networks:
 gitpay/
 ├── api/
 │   ├── ens-stats.ts    # ENS resolution + PYUSD balance
-│   └── donate.ts       # Donation button generation
+│   ├── donate.ts       # Donation button generation
+│   └── dashboard.ts    # Transaction dashboard with sent/received stats
 ├── package.json
 ├── tsconfig.json
 ├── vercel.json

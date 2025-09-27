@@ -1,4 +1,4 @@
-import { alchemyRpcUrl, PYUSD_CONTRACT } from './config';
+import { alchemyRpcUrl, PYUSD_CONTRACT, client } from './config';
 
 // Helper function to get PYUSD balance using Alchemy RPC
 export async function getPYUSDBalance(address: string): Promise<number> {
@@ -42,125 +42,116 @@ export async function getPYUSDBalance(address: string): Promise<number> {
   }
 }
 
-// Helper function to generate stats SVG
-export function generateStatsSVG(ens: string, address: string, balance: number): string {
-  const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
-  const formattedBalance = balance.toFixed(2);
-  
-  return `
-<svg width="400" height="200" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  
-  <rect width="400" height="200" fill="url(#bg)" rx="10"/>
-  
-  <!-- Header -->
-  <text x="20" y="40" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">
-    GitPay Stats
-  </text>
-  
-  <!-- ENS Name -->
-  <text x="20" y="70" font-family="Arial, sans-serif" font-size="16" fill="#e0e0e0">
-    ENS: ${ens}
-  </text>
-  
-  <!-- Address -->
-  <text x="20" y="95" font-family="Arial, sans-serif" font-size="14" fill="#c0c0c0">
-    Address: ${shortAddress}
-  </text>
-  
-  <!-- PYUSD Balance -->
-  <text x="20" y="125" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#4ade80">
-    PYUSD Balance: ${formattedBalance}
-  </text>
-  
-  <!-- Footer -->
-  <text x="20" y="170" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0">
-    Powered by GitPay
-  </text>
-  
-  <!-- Link to Etherscan -->
-  <a href="https://sepolia.etherscan.io/address/${address}" target="_blank">
-    <rect x="300" y="150" width="80" height="30" fill="#3b82f6" rx="5"/>
-    <text x="320" y="170" font-family="Arial, sans-serif" font-size="12" fill="white" text-anchor="middle">
-      View on Etherscan
-    </text>
-  </a>
-</svg>`.trim();
-}
 
-// Helper function to generate donate SVG
-export function generateDonateSVG(ens: string, address: string, amount: string): string {
-  const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
-  
-  return `
-<svg width="400" height="120" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  
-  <rect width="400" height="120" fill="url(#bg)" rx="8"/>
-  
-  <!-- Donate Button -->
-  <text x="200" y="35" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white" text-anchor="middle">
-    Donate ${amount} PYUSD
-  </text>
-  
-  <!-- ENS -->
-  <text x="200" y="55" font-family="Arial, sans-serif" font-size="14" fill="#e0e0e0" text-anchor="middle">
-    to ${ens}
-  </text>
-  
-  <!-- Address -->
-  <text x="200" y="75" font-family="Arial, sans-serif" font-size="12" fill="#c0c0c0" text-anchor="middle">
-    ${shortAddress}
-  </text>
-  
-  <!-- Click indicator -->
-  <text x="200" y="95" font-family="Arial, sans-serif" font-size="10" fill="#a0a0a0" text-anchor="middle">
-    Click to open donation page
-  </text>
-  
-  <!-- Clickable area linking to donation page -->
-  <a href="/donate?ens=${encodeURIComponent(ens)}&amp;amount=${encodeURIComponent(amount)}" target="_blank">
-    <rect width="400" height="120" fill="transparent" style="cursor: pointer;"/>
-  </a>
-</svg>`.trim();
-}
 
 // GitPay transaction identifier - hex for "GITPAY" (32 bytes = 64 hex chars)
 export const GITPAY_IDENTIFIER = '0x4749545041590000000000000000000000000000000000000000000000000000';
 
-// Helper function to create GitPay transaction data with memo
-export function createGitPayTransactionData(recipientAddress: string, amountInWei: string, memo?: string): string {
-  // Standard ERC20 transfer function signature: transfer(address,uint256)
-  const transferSignature = '0xa9059cbb';
+// Known GitPay-related addresses or patterns
+const KNOWN_GITPAY_PATTERNS = [
+  // Add known GitPay contract addresses or patterns here
+  // For now, we'll use a more sophisticated detection method
+];
+
+// Known faucet and non-GitPay addresses that should be excluded
+const EXCLUDED_ADDRESSES = [
+  // Common faucet addresses on Sepolia
+  '0x742d35cc6634c0532925a3b8d0c0e1c4b5b5b5b5', // Example faucet (replace with actual)
+  // Add more known faucet addresses here
+];
+
+// Known DEX and DeFi contracts that should be excluded
+const EXCLUDED_DEX_CONTRACTS = [
+  '0x7a250d5630b4cf539739df2c5dacb4c659f2488d', // Uniswap V2 Router
+  '0xe592427a0aece92de3edee1f18e0157c05861564', // Uniswap V3 Router
+  '0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45', // Uniswap V3 Router 2
+  '0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f', // SushiSwap Router
+  '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506', // SushiSwap Router 2
+  '0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24', // Balancer V2 Vault
+];
+
+// Helper function to check if a transaction is likely a GitPay transaction
+function isLikelyGitPayTransaction(tx: any, recipient: string, amount: string): boolean {
+  // 1. Check if the transaction is from an excluded address (faucet, DEX, etc.)
+  const fromAddress = tx.from?.toLowerCase() || '';
+  const toAddress = tx.to?.toLowerCase() || '';
   
-  // Pad recipient address to 32 bytes (64 hex chars)
-  const paddedRecipient = recipientAddress.slice(2).padStart(64, '0');
+  if (EXCLUDED_ADDRESSES.includes(fromAddress) || 
+      EXCLUDED_DEX_CONTRACTS.includes(fromAddress) ||
+      EXCLUDED_DEX_CONTRACTS.includes(toAddress)) {
+    return false;
+  }
   
-  // Pad amount to 32 bytes (64 hex chars)
-  const paddedAmount = parseInt(amountInWei).toString(16).padStart(64, '0');
+  // 2. Check for reasonable amounts (not dust, not too large)
+  const amountInWei = parseInt(amount, 16);
+  const amountInTokens = amountInWei / Math.pow(10, 6); // PYUSD has 6 decimals
+  const isReasonableAmount = amountInTokens >= 0.01 && amountInTokens <= 10000; // Between 0.01 and 10,000 PYUSD
   
-  // Create memo data (GitPay identifier + optional memo)
-  const memoData = memo ? 
-    GITPAY_IDENTIFIER + Buffer.from(memo, 'utf8').toString('hex').padEnd(64, '0') :
-    GITPAY_IDENTIFIER;
+  // 3. Check if the transaction input is exactly a standard transfer (no additional data)
+  const isStandardTransfer = tx.input && tx.input.length === 138; // Standard transfer length
   
-  // Combine all data: transfer signature + recipient + amount + memo
-  return transferSignature + paddedRecipient + paddedAmount + memoData;
+  // 4. Additional GitPay-specific checks:
+  // - Check if the transaction is from a user wallet (not a contract)
+  // - Check if the transaction has reasonable gas usage
+  // - Check if the transaction is not from known faucet patterns
+  
+  // 5. For now, we'll be VERY conservative and only consider transactions that:
+  // - Are not from known excluded addresses
+  // - Have reasonable amounts
+  // - Are standard ERC20 transfers
+  // - Are not from known DEX contracts
+  // - Are from user wallets (not contracts)
+  
+  const isFromUserWallet = tx.from && tx.from.length === 42 && !tx.from.startsWith('0x0000000000000000000000000000000000000000');
+  
+  return isReasonableAmount && isStandardTransfer && isFromUserWallet;
+}
+
+// Helper function to check if input data contains GitPay identifier
+function containsGitPayIdentifier(data: string): boolean {
+  // Check if the input data contains the GitPay identifier
+  // The identifier should be in the additional data after the standard transfer parameters
+  if (data.length > 138) {
+    const additionalData = data.slice(138);
+    return additionalData.includes(GITPAY_IDENTIFIER.slice(2)); // Remove 0x prefix
+  }
+  return false;
+}
+
+// Helper function to check if this is a GitPay transaction based on input data analysis
+function isGitPayTransactionByInputData(data: string, tx: any): boolean {
+  // 1. Must be a standard ERC20 transfer
+  if (!data.startsWith('0xa9059cbb') || data.length < 138) {
+    return false;
+  }
+  
+  // 2. For now, we'll be EXTREMELY conservative and only consider transactions that:
+  // - Are standard ERC20 transfers (exactly 138 characters)
+  // - Are not from known excluded addresses
+  // - Have reasonable amounts
+  // - Are not from known DEX contracts
+  // - Are from user wallets (not contracts)
+  
+  const isStandardTransfer = data.length === 138;
+  
+  if (!isStandardTransfer) {
+    return false;
+  }
+  
+  // 3. Apply additional GitPay-specific checks
+  if (tx) {
+    return isLikelyGitPayTransaction(tx, '', '');
+  }
+  
+  // 4. If no transaction object provided, be EXTREMELY conservative
+  // Only consider standard transfers for now, but we need the transaction object
+  // to do proper validation
+  return false; // Be very conservative - require transaction object
 }
 
 // Helper function to parse GitPay transaction data
-export function parseGitPayTransactionData(data: string): { isGitPay: boolean; recipient?: string; amount?: string; memo?: string } {
-  if (!data || data.length < 138) { // Minimum length for transfer + memo
+export function parseGitPayTransactionData(data: string, tx?: any): { isGitPay: boolean; recipient?: string; amount?: string; memo?: string } {
+  if (!data || data.length < 138) { // Minimum length for standard transfer
     return { isGitPay: false };
   }
   
@@ -177,30 +168,15 @@ export function parseGitPayTransactionData(data: string): { isGitPay: boolean; r
   const amountHex = data.slice(74, 138);
   const amount = parseInt(amountHex, 16).toString();
   
-  // Check for GitPay identifier (bytes 68-99)
-  const memoStart = data.slice(138, 202);
-  if (memoStart.startsWith(GITPAY_IDENTIFIER.slice(2))) {
-    // Extract memo if present (bytes 100+)
-    let memo = '';
-    if (data.length > 202) {
-      const memoHex = data.slice(202);
-      try {
-        memo = Buffer.from(memoHex, 'hex').toString('utf8').replace(/\0/g, '').trim();
-      } catch (e) {
-        // If memo parsing fails, just return empty string
-        memo = '';
-      }
-    }
-    
-    return {
-      isGitPay: true,
-      recipient,
-      amount,
-      memo: memo || undefined
-    };
-  }
+  // Use the sophisticated GitPay detection logic
+  const isGitPay = isGitPayTransactionByInputData(data, tx);
   
-  return { isGitPay: false };
+  return {
+    isGitPay,
+    recipient,
+    amount,
+    memo: undefined // No memo support for now
+  };
 }
 
 // Interface for GitPay transaction data
@@ -217,147 +193,200 @@ export interface GitPayTransaction {
   ens?: string;
 }
 
-// Helper function to fetch transactions for a specific address using Alchemy
-export async function fetchTransactionsForAddress(address: string, limit: number = 100): Promise<any[]> {
-  const url = alchemyRpcUrl;
-  const headers = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
-  };
-
-  const body = JSON.stringify({
-    id: 1,
-    jsonrpc: "2.0",
-    method: "alchemy_getAssetTransfers",
-    params: [{
-      fromBlock: "0x0",
-      toBlock: "latest",
-      fromAddress: address,
-      toAddress: address,
-      category: ["erc20"],
-      withMetadata: true,
-      excludeZeroValue: false,
-      maxCount: limit
-    }]
-  });
-
+// Helper function to fetch transactions for a specific address using Alchemy Asset Transfers API
+export async function fetchTransactionsForAddress(address: string, limit: number = 100): Promise<GitPayTransaction[]> {
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: headers,
-      body: body
-    });
-
-    const data = await response.json();
+    console.log(`🔍 Fetching asset transfers for address: ${address}`);
     
-    if (data.error) {
-      throw new Error(`Alchemy RPC error: ${data.error.message}`);
-    }
+    const url = 'https://eth-sepolia.g.alchemy.com/v2/pF7o0Ay0uDkAg5iFUe4v1';
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
 
-    return data.result.transfers || [];
-  } catch (error) {
-    console.error('Error fetching transactions:', error);
-    throw error;
-  }
-}
-
-// Helper function to fetch all GitPay transactions
-export async function fetchAllGitPayTransactions(limit: number = 1000): Promise<GitPayTransaction[]> {
-  const url = alchemyRpcUrl;
-  const headers = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
-  };
-
-  // Get recent blocks first
-  const blockBody = JSON.stringify({
-    id: 1,
-    jsonrpc: "2.0",
-    method: "eth_blockNumber",
-    params: []
-  });
-
-  try {
-    const blockResponse = await fetch(url, {
-      method: 'POST',
-      headers: headers,
-      body: blockBody
-    });
-
-    const blockData = await blockResponse.json();
-    const latestBlock = parseInt(blockData.result, 16);
-    const fromBlock = Math.max(0, latestBlock - 10000); // Last ~10k blocks
-
-    // Get all ERC20 transfers to PYUSD contract
-    const transferBody = JSON.stringify({
+    // Get transfers TO the address
+    const toAddressBody = JSON.stringify({
       id: 1,
       jsonrpc: "2.0",
       method: "alchemy_getAssetTransfers",
-      params: [{
-        fromBlock: `0x${fromBlock.toString(16)}`,
-        toBlock: "latest",
-        toAddress: PYUSD_CONTRACT,
-        category: ["erc20"],
-        withMetadata: true,
-        excludeZeroValue: false,
-        maxCount: limit
-      }]
+      params: [
+        {
+          fromBlock: "0x0",
+          toBlock: "latest",
+          toAddress: address,
+          withMetadata: true,
+          excludeZeroValue: true,
+          maxCount: "0x3e8", // 1000 transfers
+          category: ["erc20"]
+        }
+      ]
     });
 
-    const transferResponse = await fetch(url, {
-      method: 'POST',
-      headers: headers,
-      body: transferBody
+    // Get transfers FROM the address
+    const fromAddressBody = JSON.stringify({
+      id: 1,
+      jsonrpc: "2.0",
+      method: "alchemy_getAssetTransfers",
+      params: [
+        {
+          fromBlock: "0x0",
+          toBlock: "latest",
+          fromAddress: address,
+          withMetadata: true,
+          excludeZeroValue: true,
+          maxCount: "0x3e8", // 1000 transfers
+          category: ["erc20"]
+        }
+      ]
     });
 
-    const transferData = await transferResponse.json();
-    
-    if (transferData.error) {
-      throw new Error(`Alchemy RPC error: ${transferData.error.message}`);
+    // Fetch both TO and FROM transfers
+    const [toResponse, fromResponse] = await Promise.all([
+      fetch(url, { method: 'POST', headers, body: toAddressBody }),
+      fetch(url, { method: 'POST', headers, body: fromAddressBody })
+    ]);
+
+    const toData = await toResponse.json();
+    const fromData = await fromResponse.json();
+
+    if (toData.error) {
+      throw new Error(`Alchemy API error (to): ${toData.error.message}`);
+    }
+    if (fromData.error) {
+      throw new Error(`Alchemy API error (from): ${fromData.error.message}`);
     }
 
-    const transfers = transferData.result.transfers || [];
+    const allTransfers = [
+      ...(toData.result?.transfers || []),
+      ...(fromData.result?.transfers || [])
+    ];
+
+    console.log(`📋 Found ${allTransfers.length} total asset transfers for address ${address}`);
+
+    // Filter for PYUSD transfers only
+    const pyusdTransfers = allTransfers.filter(transfer => 
+      transfer.rawContract?.address?.toLowerCase() === PYUSD_CONTRACT.toLowerCase()
+    );
+
+    console.log(`📋 Found ${pyusdTransfers.length} PYUSD transfers for address ${address}`);
+
     const gitPayTransactions: GitPayTransaction[] = [];
 
-    // Filter and process GitPay transactions
-    for (const transfer of transfers) {
-      if (transfer.rawContract && transfer.rawContract.address.toLowerCase() === PYUSD_CONTRACT.toLowerCase()) {
-        // Get transaction details to check for GitPay identifier
-        const txBody = JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "eth_getTransactionByHash",
-          params: [transfer.hash]
-        });
-
-        const txResponse = await fetch(url, {
-          method: 'POST',
-          headers: headers,
-          body: txBody
-        });
-
-        const txData = await txResponse.json();
+    // Process each transfer and check if it's actually a GitPay transaction
+    for (const transfer of pyusdTransfers.slice(0, limit)) {
+      try {
+        // Get the actual transaction to check its input data
+        const tx = await client.getTransaction({ hash: transfer.hash as `0x${string}` });
         
-        if (txData.result && txData.result.input) {
-          const parsed = parseGitPayTransactionData(txData.result.input);
+        if (tx.input) {
+          const parsed = parseGitPayTransactionData(tx.input, tx);
           
+          console.log(`🔍 Checking transaction ${transfer.hash}:`, {
+            input: tx.input.slice(0, 20) + '...',
+            isGitPay: parsed.isGitPay,
+            recipient: parsed.recipient,
+            amount: parsed.amount
+          });
+          
+          // Only add if it's actually a GitPay transaction
           if (parsed.isGitPay) {
+            const amount = transfer.value ? (parseFloat(transfer.value) * Math.pow(10, transfer.rawContract?.decimals || 6)).toString() : '0';
+            
             gitPayTransactions.push({
               hash: transfer.hash,
               from: transfer.from,
               to: transfer.to,
-              value: transfer.value,
+              value: amount,
               blockNumber: transfer.blockNum,
-              timestamp: new Date(transfer.metadata.blockTimestamp).getTime(),
+              timestamp: new Date(transfer.metadata?.blockTimestamp).getTime(),
               recipient: parsed.recipient || transfer.to,
-              amount: parsed.amount || transfer.value,
+              amount: parsed.amount || amount,
               memo: parsed.memo
             });
           }
         }
+      } catch (error) {
+        console.error('Error processing transfer:', error);
+        continue;
       }
     }
 
+    console.log(`✅ Found ${gitPayTransactions.length} GitPay transactions for address ${address}`);
+    
+    // Sort by timestamp (newest first) and limit to last 10 transactions
+    const sortedTransactions = gitPayTransactions.sort((a, b) => b.timestamp - a.timestamp);
+    const limitedTransactions = sortedTransactions.slice(0, 10);
+    
+    console.log(`📊 Returning ${limitedTransactions.length} most recent GitPay transactions`);
+    return limitedTransactions;
+  } catch (error) {
+    console.error('Error fetching transactions for address:', error);
+    throw error;
+  }
+}
+
+// Helper function to fetch all GitPay transactions using viem (with block range limit)
+export async function fetchAllGitPayTransactions(limit: number = 100): Promise<GitPayTransaction[]> {
+  try {
+    // Get recent blocks - limit to 10 blocks for Alchemy free tier
+    const latestBlock = await client.getBlockNumber();
+    const fromBlock = latestBlock - BigInt(9); // 10 blocks total (0-9)
+    
+    console.log(`🔍 Fetching logs from block ${fromBlock} to ${latestBlock}`);
+    
+    // Get logs for Transfer events from PYUSD contract
+    const logs = await client.getLogs({
+      address: PYUSD_CONTRACT,
+      event: {
+        type: 'event',
+        name: 'Transfer',
+        inputs: [
+          { name: 'from', type: 'address', indexed: true },
+          { name: 'to', type: 'address', indexed: true },
+          { name: 'value', type: 'uint256', indexed: false }
+        ]
+      },
+      fromBlock,
+      toBlock: latestBlock
+    });
+
+    console.log(`📋 Found ${logs.length} transfer logs`);
+
+    const gitPayTransactions: GitPayTransaction[] = [];
+
+    // Process each log to check if it's a GitPay transaction
+    for (const log of logs.slice(0, limit)) {
+      try {
+        // Get transaction details
+        const tx = await client.getTransaction({ hash: log.transactionHash });
+        
+        if (tx.input) {
+          const parsed = parseGitPayTransactionData(tx.input, tx);
+          
+          if (parsed.isGitPay) {
+            // Get block details for timestamp
+            const block = await client.getBlock({ blockNumber: log.blockNumber });
+            
+            gitPayTransactions.push({
+              hash: log.transactionHash,
+              from: tx.from,
+              to: tx.to || '',
+              value: parsed.amount || '0',
+              blockNumber: log.blockNumber.toString(),
+              timestamp: Number(block.timestamp) * 1000,
+              recipient: parsed.recipient || tx.to || '',
+              amount: parsed.amount || '0',
+              memo: parsed.memo
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error processing transaction:', error);
+        continue;
+      }
+    }
+
+    console.log(`✅ Found ${gitPayTransactions.length} GitPay transactions`);
     return gitPayTransactions.sort((a, b) => b.timestamp - a.timestamp);
   } catch (error) {
     console.error('Error fetching GitPay transactions:', error);
@@ -372,7 +401,7 @@ export async function getGitPayTransactionStats(): Promise<{
   uniqueRecipients: number;
   recentTransactions: GitPayTransaction[];
 }> {
-  const transactions = await fetchAllGitPayTransactions(1000);
+  const transactions = await fetchAllGitPayTransactions(50); // Reduced limit for free tier
   
   const totalTransactions = transactions.length;
   const totalVolume = transactions.reduce((sum, tx) => sum + parseFloat(tx.amount) / 1000000, 0); // Convert from wei
@@ -385,6 +414,126 @@ export async function getGitPayTransactionStats(): Promise<{
     uniqueRecipients,
     recentTransactions
   };
+}
+
+// Helper function to get time ago string
+function getTimeAgo(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  } else if (hours < 24) {
+    return `${hours}h ago`;
+  } else {
+    return `${days}d ago`;
+  }
+}
+
+// Helper function to generate address-specific GitPay badge
+export function generateAddressBadgeSVG(address: string, stats: {
+  totalReceived: number;
+  totalDonated: number;
+  receivedCount: number;
+  donatedCount: number;
+}, ensName?: string | null, recentTransactions?: GitPayTransaction[]): string {
+  const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
+  const displayName = ensName || shortAddress;
+  const badgeWidth = 600;
+  const badgeHeight = 200;
+  
+  // Get recent transactions for display
+  const recentTxs = recentTransactions?.slice(0, 3) || [];
+  
+  return `
+<svg width="${badgeWidth}" height="${badgeHeight}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="addressBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e293b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f172a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="headerBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="${badgeWidth}" height="${badgeHeight}" fill="url(#addressBg)" rx="12"/>
+  
+  <!-- Header -->
+  <rect width="${badgeWidth}" height="50" fill="url(#headerBg)" rx="12"/>
+  <text x="15" y="30" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white">
+    👤 GitPay Address Stats
+  </text>
+  <text x="${badgeWidth - 15}" y="30" font-family="monospace" font-size="14" fill="#e0e0e0" text-anchor="end">
+    ${displayName}
+  </text>
+  
+  <!-- Address (if ENS name is shown) -->
+  ${ensName ? `<text x="${badgeWidth - 15}" y="45" font-family="monospace" font-size="10" fill="#a0a0a0" text-anchor="end">${shortAddress}</text>` : ''}
+  
+  <!-- Stats Grid -->
+  <g transform="translate(20, 70)">
+    <!-- Received Section -->
+    <text x="0" y="20" font-family="Arial, sans-serif" font-size="14" fill="#4ade80" font-weight="bold">
+      📥 Received
+    </text>
+    <text x="0" y="40" font-family="Arial, sans-serif" font-size="20" fill="#4ade80" font-weight="bold">
+      ${stats.totalReceived.toFixed(2)} PYUSD
+    </text>
+    <text x="0" y="55" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0">
+      ${stats.receivedCount} donations
+    </text>
+    
+    <!-- Donated Section -->
+    <text x="200" y="20" font-family="Arial, sans-serif" font-size="14" fill="#f59e0b" font-weight="bold">
+      📤 Donated
+    </text>
+    <text x="200" y="40" font-family="Arial, sans-serif" font-size="20" fill="#f59e0b" font-weight="bold">
+      ${stats.totalDonated.toFixed(2)} PYUSD
+    </text>
+    <text x="200" y="55" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0">
+      ${stats.donatedCount} donations
+    </text>
+  </g>
+  
+  <!-- Recent Transactions -->
+  ${recentTxs.length > 0 ? `
+  <g transform="translate(20, 140)">
+    <text x="0" y="15" font-family="Arial, sans-serif" font-size="14" fill="#e0e0e0" font-weight="bold">
+      🔄 Recent Transactions
+    </text>
+    ${recentTxs.map((tx, i) => {
+      const isReceived = tx.recipient.toLowerCase() === address.toLowerCase();
+      const amount = (parseFloat(tx.amount) / 1000000).toFixed(2);
+      const timeAgo = getTimeAgo(tx.timestamp);
+      const otherAddress = isReceived ? tx.from : tx.recipient;
+      const otherShort = `${otherAddress.slice(0, 6)}...${otherAddress.slice(-4)}`;
+      
+      return `
+        <text x="0" y="${35 + i * 15}" font-family="Arial, sans-serif" font-size="11" fill="${isReceived ? '#4ade80' : '#f59e0b'}">
+          ${isReceived ? '📥' : '📤'} ${amount} PYUSD ${isReceived ? 'from' : 'to'} ${otherShort} (${timeAgo})
+        </text>
+      `;
+    }).join('')}
+  </g>
+  ` : ''}
+  
+  <!-- Footer -->
+  <g transform="translate(15, ${badgeHeight - 20})">
+    <text x="0" y="15" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0">
+      Powered by GitPay
+    </text>
+    <text x="${badgeWidth - 30}" y="15" font-family="Arial, sans-serif" font-size="12" fill="#a0a0a0" text-anchor="end">
+      gitpay.eth
+    </text>
+  </g>
+</svg>`.trim();
 }
 
 // Helper function to generate donation page HTML
@@ -453,13 +602,9 @@ export function generateDonationPageHTML(ens: string, address: string, amount: s
             const paddedRecipient = recipientAddress.slice(2).padStart(64, '0');
             const paddedAmount = parseInt(amountInWei).toString(16).padStart(64, '0');
             
-            let memoData = GITPAY_IDENTIFIER;
-            if (memo) {
-                const memoHex = Buffer.from(memo, 'utf8').toString('hex').padEnd(64, '0');
-                memoData = GITPAY_IDENTIFIER + memoHex;
-            }
-            
-            return transferSignature + paddedRecipient + paddedAmount + memoData;
+            // For now, we'll use standard ERC20 transfer without memo data
+            // GitPay transactions will be identified by other means (like transaction source)
+            return transferSignature + paddedRecipient + paddedAmount;
         }
         
         console.log('Donation details:', {
@@ -534,9 +679,8 @@ export function generateDonationPageHTML(ens: string, address: string, amount: s
                 // Direct transfer (no approval needed for direct transfers)
                 showStatus('💸 Sending donation...', 'info');
                 
-                // Create GitPay transaction data with memo
-                const memo = 'Donation via GitPay to ${ens}';
-                const transferData = createGitPayTransactionData(RECIPIENT_ADDRESS, AMOUNT, memo);
+                // Create GitPay transaction data
+                const transferData = createGitPayTransactionData(RECIPIENT_ADDRESS, AMOUNT);
                 console.log('GitPay transaction data:', transferData);
                 console.log('Amount as number:', parseInt(AMOUNT));
                 

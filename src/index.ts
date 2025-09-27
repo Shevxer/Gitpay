@@ -9,7 +9,9 @@ import {
   gitPayTransactions,
   gitPayTransactionsByAddress,
   gitPayTransactionStats,
-  gitPayRecentTransactions
+  gitPayRecentTransactions,
+  gitPayDashboard,
+  gitPayAddressBadge
 } from './routes';
 
 const app = express();
@@ -30,6 +32,9 @@ app.get('/api/transactions/stats', gitPayTransactionStats);
 app.get('/api/transactions/recent', gitPayRecentTransactions);
 app.get('/api/transactions/:address', gitPayTransactionsByAddress);
 
+// GitPay Dashboard API Routes
+app.get('/api/dashboard', gitPayDashboard);
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 GitPay server running on http://localhost:${PORT}`);
@@ -40,5 +45,7 @@ app.listen(PORT, () => {
   console.log(`   📊 Statistics: http://localhost:${PORT}/api/transactions/stats`);
   console.log(`   🕒 Recent: http://localhost:${PORT}/api/transactions/recent`);
   console.log(`   👤 By Address: http://localhost:${PORT}/api/transactions/0x...`);
+  console.log(`\n🏷️ GitPay Dashboard APIs:`);
+  console.log(`   👤 Dashboard: http://localhost:${PORT}/api/dashboard?address=0x...`);
   console.log(`\n💡 Make sure to set ALCHEMY_API_KEY in your .env file`);
 });
