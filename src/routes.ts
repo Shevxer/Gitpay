@@ -109,6 +109,10 @@ export function healthCheck(req: Request, res: Response) {
     endpoints: [
       'GET /api/ens-stats?ens=yourname.eth',
       'GET /api/donate?ens=yourname.eth&amount=10',
+      'GET /api/transactions - Get all GitPay transactions',
+      'GET /api/transactions/:address - Get transactions for specific address',
+      'GET /api/transactions/stats - Get transaction statistics',
+      'GET /api/transactions/recent - Get recent transactions'
     ]
   });
 }
