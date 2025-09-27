@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "api/ens-stats.ts": {
+      "runtime": "nodejs18.x"
+    },
+    "api/donate.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    }
+  ]
+}
