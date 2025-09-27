@@ -26,12 +26,80 @@ interface GitPayTransaction {
   ens?: string;
 }
 
+// GitPay transaction identifier - hex for "GITPAY" (32 bytes = 64 hex chars)
+const GITPAY_IDENTIFIER = '0x4749545041590000000000000000000000000000000000000000000000000000';
+
+// Helper function to check if input data contains GitPay identifier
+function containsGitPayIdentifier(data: string): boolean {
+  // Check if the input data contains the GitPay identifier
+  // The identifier should be in the additional data after the standard transfer parameters
+  if (data.length > 138) {
+    const additionalData = data.slice(138);
+    const hasIdentifier = additionalData.includes(GITPAY_IDENTIFIER.slice(2)); // Remove 0x prefix
+    
+    // Debug logging
+    if (hasIdentifier) {
+      console.log(`🔍 Found GitPay identifier in transaction data:`, {
+        dataLength: data.length,
+        additionalData: additionalData.slice(0, 20) + '...',
+        identifier: GITPAY_IDENTIFIER.slice(2)
+      });
+    }
+    
+    return hasIdentifier;
+  }
+  return false;
+}
+
+// Helper function to check if this is a GitPay transaction based on input data analysis
+function isGitPayTransactionByInputData(data: string, tx: any): boolean {
+  // 1. Must be a standard ERC20 transfer
+  if (!data.startsWith('0xa9059cbb') || data.length < 138) {
+    return false;
+  }
+  
+  // 2. ONLY consider transactions that contain the GitPay identifier
+  const hasGitPayIdentifier = containsGitPayIdentifier(data);
+  
+  return hasGitPayIdentifier;
+}
+
+// Helper function to parse GitPay transaction data
+function parseGitPayTransactionData(data: string, tx?: any): { isGitPay: boolean; recipient?: string; amount?: string; memo?: string } {
+  if (!data || data.length < 138) { // Minimum length for standard transfer
+    return { isGitPay: false };
+  }
+  
+  // Check if it's a transfer function call
+  if (!data.startsWith('0xa9059cbb')) {
+    return { isGitPay: false };
+  }
+  
+  // Extract recipient address (bytes 4-35)
+  const recipientHex = data.slice(10, 74);
+  const recipient = '0x' + recipientHex.slice(24); // Remove padding
+  
+  // Extract amount (bytes 36-67)
+  const amountHex = data.slice(74, 138);
+  const amount = parseInt(amountHex, 16).toString();
+  
+  // Use the sophisticated GitPay detection logic
+  const isGitPay = isGitPayTransactionByInputData(data, tx);
+  
+  return {
+    isGitPay,
+    recipient,
+    amount,
+    memo: undefined // No memo support for now
+  };
+}
+
 // Helper function to fetch transactions for a specific address using Alchemy Asset Transfers API
 async function fetchTransactionsForAddress(address: string, limit: number = 100): Promise<GitPayTransaction[]> {
   try {
     console.log(`🔍 Fetching asset transfers for address: ${address}`);
     
-    const url = 'https://eth-sepolia.g.alchemy.com/v2/pF7o0Ay0uDkAg5iFUe4v1';
+    const url = `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
     const headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json'
@@ -112,21 +180,31 @@ async function fetchTransactionsForAddress(address: string, limit: number = 100)
         const tx = await client.getTransaction({ hash: transfer.hash as `0x${string}` });
         
         if (tx.input) {
-          // For now, we'll consider all PYUSD transfers as GitPay transactions
-          // This is a simplified approach - in production you might want to add additional checks
-          const amount = transfer.value ? (parseFloat(transfer.value) * Math.pow(10, transfer.rawContract?.decimals || 6)).toString() : '0';
+          const parsed = parseGitPayTransactionData(tx.input, tx);
           
-          gitPayTransactions.push({
-            hash: transfer.hash,
-            from: transfer.from,
-            to: transfer.to,
-            value: amount,
-            blockNumber: transfer.blockNum,
-            timestamp: new Date(transfer.metadata?.blockTimestamp).getTime(),
-            recipient: transfer.to,
-            amount: amount,
-            memo: undefined
+          console.log(`🔍 Checking transaction ${transfer.hash}:`, {
+            input: tx.input.slice(0, 20) + '...',
+            isGitPay: parsed.isGitPay,
+            recipient: parsed.recipient,
+            amount: parsed.amount
           });
+          
+          // Only add if it's actually a GitPay transaction
+          if (parsed.isGitPay) {
+            const amount = transfer.value ? (parseFloat(transfer.value) * Math.pow(10, transfer.rawContract?.decimals || 6)).toString() : '0';
+            
+            gitPayTransactions.push({
+              hash: transfer.hash,
+              from: transfer.from,
+              to: transfer.to,
+              value: amount,
+              blockNumber: transfer.blockNum,
+              timestamp: new Date(transfer.metadata?.blockTimestamp).getTime(),
+              recipient: parsed.recipient || transfer.to,
+              amount: parsed.amount || amount,
+              memo: parsed.memo
+            });
+          }
         }
       } catch (error) {
         console.error('Error processing transfer:', error);

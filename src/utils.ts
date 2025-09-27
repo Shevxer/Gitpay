@@ -131,7 +131,7 @@ export async function fetchTransactionsForAddress(address: string, limit: number
   try {
     console.log(`🔍 Fetching asset transfers for address: ${address}`);
     
-    const url = 'https://eth-sepolia.g.alchemy.com/v2/pF7o0Ay0uDkAg5iFUe4v1';
+    const url = alchemyRpcUrl;
     const headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json'
