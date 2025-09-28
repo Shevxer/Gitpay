@@ -2,6 +2,17 @@
 
 **A monetary layer on top of GitHub—humane and stable, thanks to ENS and PYUSD.**
 
+<p align="center">
+  <img src="https://gitpay-vert.vercel.app/api/ens-stats?ens=shevxer.eth&show_icons=true" alt="shevxer" />
+  <a href="https://gitpay-vert.vercel.app/donate?ens=shevxer.eth&amount=1" target="_blank">
+    <img src="https://gitpay-vert.vercel.app/api/donate?ens=shevxer.eth&amount=1&show_icons=true" alt="shevxer" />
+  </a>
+</p>
+<p align="center">
+  <img src="https://gitpay-vert.vercel.app/api/dashboard?ens=shevxer.eth&show_icons=true" alt="shevxer" />
+</p>
+
+
 GitPay is a decentralized payment system that enables seamless donations and payments using ENS (Ethereum Name Service) names and PYUSD (PayPal USD) stablecoin. Just add it in markdown, and it's good to go!
 
 ## Features
@@ -99,12 +110,16 @@ Add a balance badge to your README:
 ![GitPay Balance](https://your-domain.vercel.app/api/ens-stats?ens=yourname.eth&style=light)
 ```
 
+![Vitalik.eth](https://gitpay-vert.vercel.app/api/ens-stats?ens=vitalik.eth&show_icons=true)
+
+
 ### Donation Button
 Add a donation button:
 
 ```markdown
 ![Donate](https://your-domain.vercel.app/donate?ens=yourname.eth&amount=10)
 ```
+![](https://gitpay-vert.vercel.app/api/donate?ens=shevxer.eth&amount=10&style=dark&show_icons=true)
 
 ### Dashboard
 Add a comprehensive dashboard:
@@ -112,6 +127,8 @@ Add a comprehensive dashboard:
 ```markdown
 ![GitPay Dashboard](https://your-domain.vercel.app/api/dashboard?ens=yourname.eth&style=light)
 ```
+
+![Feed](https://gitpay-vert.vercel.app/api/dashboard?ens=weknew.eth&style=neon)
 
 ## Dynamic SVG Generation
 
