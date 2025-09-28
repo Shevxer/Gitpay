@@ -103,7 +103,7 @@ Add a balance badge to your README:
 Add a donation button:
 
 ```markdown
-[![Donate](https://your-domain.vercel.app/api/donate?ens=yourname.eth&amount=10&style=light)](https://your-domain.vercel.app/donate?ens=yourname.eth&amount=10)
+[![Donate]](https://your-domain.vercel.app/donate?ens=yourname.eth&amount=10)
 ```
 
 ### Dashboard
