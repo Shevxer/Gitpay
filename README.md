@@ -1,207 +1,274 @@
-# GitPay 🚀
+# GitPay
 
-**GitPay** - ENS to PYUSD balance and donation buttons for GitHub READMEs
+**A monetary layer on top of GitHub—humane and stable, thanks to ENS and PYUSD.**
 
-Resolve ENS names to wallet addresses, fetch PYUSD balances, and generate beautiful SVG cards for your GitHub profile or project READMEs.
+GitPay is a decentralized payment system that enables seamless donations and payments using ENS (Ethereum Name Service) names and PYUSD (PayPal USD) stablecoin. Just add it in markdown, and it's good to go!
 
-## ✨ Features
+## Features
 
-- 🔍 **ENS Resolution**: Convert ENS names to wallet addresses
-- 💰 **PYUSD Balance**: Fetch real-time PYUSD token balances
-- 🎨 **Beautiful SVGs**: Generate attractive SVG cards
-- 🚀 **Vercel Ready**: Deploy instantly to Vercel
-- ⚡ **Fast & Cached**: 5-minute caching for optimal performance
-- 🌐 **Sepolia Testnet**: Currently configured for Sepolia testnet
+- **Dynamic SVG Generation**: Real-time, server-side generated SVG badges and components
+- **Multiple Themes**: Light, dark, and neon themes with custom styling and animations
+- **Interactive Dashboards**: Comprehensive transaction history with live data visualization
+- **One-Click Donations**: Seamless donation buttons with MetaMask integration
+- **ENS Integration**: Human-readable names instead of complex wallet addresses
+- **Serverless Architecture**: Built on Vercel serverless functions for optimal performance
+- **Real-time Updates**: Live balance and transaction data with intelligent caching
 
-## 🚀 Quick Start
+## Tech Stack
 
-### 1. Clone and Install
+### Core Technologies
+- **TypeScript** - Type-safe development with modern JavaScript features
+- **Viem** - Type-safe Ethereum library for blockchain interactions
+- **Express.js** - Web framework for API endpoints
+- **Vercel** - Serverless deployment platform
 
-```bash
-git clone <your-repo>
-cd gitpay
-npm install
-```
+### Blockchain & Web3
+- **Ethereum Sepolia Testnet** - Test network for development and testing
+- **ENS (Ethereum Name Service)** - Human-readable wallet addresses
+- **PYUSD (PayPal USD)** - USD-pegged stablecoin for payments
+- **MetaMask** - Web3 wallet integration for user interactions
+- **Alchemy** - Blockchain infrastructure and RPC provider
 
-### 2. Environment Setup
+### Infrastructure
+- **Vercel Serverless Functions** - Scalable, serverless API endpoints
+- **Alchemy RPC** - Reliable blockchain data access
+- **Dynamic SVG Engine** - Server-side SVG generation with real-time data binding
 
-Create a `.env.local` file:
+## Quick Start
 
-```env
-ALCHEMY_API_KEY=your_alchemy_api_key_here
-```
+### Prerequisites
+- Node.js 18+ 
+- Alchemy API key
+- MetaMask wallet (for testing)
 
-Get your free Alchemy API key at [alchemy.com](https://alchemy.com)
+### Installation
 
-### 3. Local Development
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/gitpay.git
+   cd gitpay
+   ```
 
-```bash
-# Install Vercel CLI globally if you haven't
-npm i -g vercel
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-# Start local development server
-vercel dev
-```
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Add your Alchemy API key to `.env`:
+   ```env
+   ALCHEMY_API_KEY=your_alchemy_api_key_here
+   ```
 
-Your API will be available at:
-- `http://localhost:3000/api/ens-stats?ens=yourname.eth`
-- `http://localhost:3000/api/donate?ens=yourname.eth&amount=10`
-- `http://localhost:3000/api/dashboard?ens=yourname.eth` (or `?address=0x...`)
+4. **Run locally**
+   ```bash
+   npm run dev
+   ```
 
-### 4. Deploy to Vercel
+5. **Deploy to Vercel**
+   ```bash
+   vercel --prod
+   ```
 
-```bash
-# Deploy to Vercel
-vercel
+## API Endpoints
 
-# Set environment variable
-vercel env add ALCHEMY_API_KEY
-```
+### Balance & Stats
+- `GET /api/ens-stats?ens=yourname.eth&style=light|dark|neon` - Get PYUSD balance as SVG
+- `GET /api/dashboard?ens=yourname.eth&style=light|dark|neon` - Get comprehensive dashboard
 
-## 📖 API Endpoints
+### Donations
+- `GET /api/donate?ens=yourname.eth&amount=10&style=light|dark|neon` - Get donation button SVG
+- `GET /donate?ens=yourname.eth&amount=10` - Full donation page with MetaMask integration
 
-### `/api/ens-stats`
+### Transactions
+- `GET /api/transactions` - Get all GitPay transactions
+- `GET /api/transactions/:address` - Get transactions for specific address
+- `GET /api/transactions/stats` - Get transaction statistics
+- `GET /api/transactions/recent` - Get recent transactions
 
-Get ENS stats and PYUSD balance as an SVG card.
+## Usage Examples
 
-**Parameters:**
-- `ens` (required): ENS name (e.g., `vitalik.eth`)
-
-**Example:**
-```
-GET /api/ens-stats?ens=vitalik.eth
-```
-
-**Response:** SVG image showing:
-- ENS name
-- Resolved address
-- PYUSD balance
-
-### `/api/donate`
-
-Generate a donation button SVG.
-
-**Parameters:**
-- `ens` (required): ENS name
-- `amount` (optional): Donation amount in PYUSD (default: 10)
-- `method` (optional): Payment method (default: pyusd)
-
-**Example:**
-```
-GET /api/donate?ens=vitalik.eth&amount=25&method=pyusd
-```
-
-**Response:** SVG donation button
-
-### `/api/dashboard`
-
-Generate a comprehensive dashboard SVG showing sent/received amounts and recent transactions.
-
-**Parameters:**
-- `ens` (optional): ENS name (e.g., `vitalik.eth`)
-- `address` (optional): Ethereum address (e.g., `0x...`)
-
-**Note:** Either `ens` or `address` must be provided.
-
-**Example:**
-```
-GET /api/dashboard?ens=vitalik.eth
-GET /api/dashboard?address=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
-```
-
-**Response:** SVG dashboard showing:
-- ENS name (if resolvable) and address
-- Total received PYUSD amount and count
-- Total donated PYUSD amount and count
-- Recent transaction history
-
-## 🎨 GitHub README Integration
-
-### Stats Card
-
-Add this to your README to show your ENS stats:
+### Balance Badge
+Add a balance badge to your README:
 
 ```markdown
-[![GitPay Stats](https://your-app.vercel.app/api/ens-stats?ens=yourname.eth)](https://sepolia.etherscan.io/address/0xYourAddress)
+![GitPay Balance](https://your-domain.vercel.app/api/ens-stats?ens=yourname.eth&style=light)
 ```
 
 ### Donation Button
-
-Add this to encourage donations:
+Add a donation button:
 
 ```markdown
-[![Donate PYUSD](https://your-app.vercel.app/api/donate?ens=yourname.eth&amount=10)](ethereum:0xYourAddress@1?value=0&address=0xYourAddress&uint256=10000000)
+[![Donate](https://your-domain.vercel.app/api/donate?ens=yourname.eth&amount=10&style=light)](https://your-domain.vercel.app/donate?ens=yourname.eth&amount=10)
 ```
 
 ### Dashboard
-
-Add this to show a comprehensive transaction dashboard:
+Add a comprehensive dashboard:
 
 ```markdown
-[![GitPay Dashboard](https://your-app.vercel.app/api/dashboard?ens=yourname.eth)](https://sepolia.etherscan.io/address/0xYourAddress)
+![GitPay Dashboard](https://your-domain.vercel.app/api/dashboard?ens=yourname.eth&style=light)
 ```
 
-## 🔧 Configuration
+## Dynamic SVG Generation
 
-### Supported Networks
+GitPay's core innovation is its **server-side SVG generation engine** that creates beautiful, data-driven graphics in real-time.
 
-Currently configured for **Sepolia testnet**. To change networks:
+### SVG Features
+- **Real-Time Data**: Live blockchain data embedded directly into SVG elements
+- **Professional Themes**: Three carefully crafted themes with custom color palettes
+- **Responsive Design**: Perfect scaling across all devices and screen sizes
+- **Performance Optimized**: Intelligent caching with 5-minute TTL for optimal performance
+- **Custom Animations**: Smooth transitions and hover effects (neon theme)
+- **Accessibility**: High contrast ratios and readable fonts across all themes
 
-1. Update the chain in `api/ens-stats.ts` and `api/donate.ts`:
-   ```typescript
-   import { mainnet } from 'viem/chains'; // For mainnet
-   ```
+### Theme System
 
-2. Update the PYUSD contract address for the target network
+All components support three professional themes:
 
-3. Update the Alchemy RPC URL
+- **Light** (`style=light`) - Clean, professional look with subtle shadows
+- **Dark** (`style=dark`) - Modern dark theme with elegant gradients  
+- **Neon** (`style=neon`) - Cyberpunk-inspired design with glow effects
 
-### PYUSD Contract
+### Technical Implementation
 
-- **Sepolia**: `0x6c3ea9036406852006290770BEdFcAbA0e23A0e8`
-- **Mainnet**: `0x6c3ea9036406852006290770BEdFcAbA0e23A0e8`
-
-## 🛠️ Development
-
-### Project Structure
-
+```typescript
+// Example: Dynamic SVG generation with real-time data
+function generateStatsSVG(ens: string, address: string, balance: number, style: 'light' | 'dark' | 'neon'): string {
+  const themes = {
+    light: { background: '#ffffff', primaryText: '#1e293b', accentText: '#059669' },
+    dark: { background: '#0f172a', primaryText: '#f1f5f9', accentText: '#10b981' },
+    neon: { background: '#0a0a0a', primaryText: '#00ff88', accentText: '#ff0088' }
+  };
+  
+  return `<svg width="500" height="200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="500" height="200" fill="${themes[style].background}" rx="10"/>
+    <text x="20" y="40" fill="${themes[style].primaryText}">GitPay Stats</text>
+    <text x="20" y="70" fill="${themes[style].accentText}">PYUSD Balance: ${balance.toFixed(2)}</text>
+  </svg>`;
+}
 ```
-gitpay/
-├── api/
-│   ├── ens-stats.ts    # ENS resolution + PYUSD balance
-│   ├── donate.ts       # Donation button generation
-│   └── dashboard.ts    # Transaction dashboard with sent/received stats
-├── package.json
-├── tsconfig.json
-├── vercel.json
-└── README.md
+
+## How It Works
+
+### Dynamic SVG Generation Engine
+- **Server-Side Rendering**: SVGs are generated on-demand by Vercel serverless functions
+- **Real-Time Data Binding**: Live blockchain data is embedded directly into SVG elements
+- **Theme System**: Three professional themes (light/dark/neon) with custom color palettes
+- **Responsive Design**: SVGs scale perfectly across all devices and screen sizes
+- **Performance Optimized**: Cached SVGs with intelligent invalidation for optimal load times
+
+### ENS Resolution
+- Converts human-readable ENS names (like `yourname.eth`) to Ethereum addresses
+- Uses Viem's ENS integration for reliable resolution
+
+### PYUSD Balance Tracking
+- Queries PYUSD contract on Sepolia testnet
+- Uses Alchemy RPC for efficient blockchain data access
+- Displays real-time balance with 6-decimal precision
+
+### GitPay Transaction Detection
+- Identifies transactions using custom GitPay identifier (`0x474954504159...`)
+- Parses transaction data to extract recipient, amount, and memo
+- Tracks both incoming and outgoing payments
+
+### MetaMask Integration
+- Generates donation pages with MetaMask wallet connection
+- Handles network switching to Sepolia testnet
+- Creates GitPay-identified transactions for tracking
+
+## Architecture
+
+The system consists of several key components:
+
+1. **Dynamic SVG Engine** - Server-side SVG generation with real-time data binding
+2. **API Layer** - Vercel serverless functions handling all endpoints
+3. **Blockchain Layer** - Viem client for Ethereum interactions
+4. **Data Layer** - Alchemy RPC for blockchain data access
+5. **Integration Layer** - MetaMask wallet integration
+
+### System Overview
+
+```mermaid
+graph TB
+    subgraph "User Interface"
+        A[GitHub README] --> B[Balance Badge]
+        A --> C[Donation Button]
+        A --> D[Dashboard]
+    end
+    
+    subgraph "API Layer (Vercel Serverless)"
+        E[/api/ens-stats] --> F[ENS Resolution]
+        G[/api/donate] --> H[Donation Page]
+        I[/api/dashboard] --> J[Transaction Stats]
+    end
+    
+    subgraph "Blockchain Layer"
+        M[Viem Client] --> N[Ethereum Sepolia]
+        M --> O[ENS Registry]
+        M --> P[PYUSD Contract]
+    end
+    
+    subgraph "Data Sources"
+        Q[Alchemy RPC] --> R[Blockchain Data]
+    end
+    
+    B --> E
+    C --> G
+    D --> I
+    
+    F --> M
+    H --> M
+    J --> M
+    
+    M --> Q
+    N --> R
+    O --> R
+    P --> R
 ```
 
-### Dependencies
+## Security Features
 
-- **viem**: Ethereum library for ENS resolution and contract calls
-- **@vercel/node**: Vercel serverless functions
-- **typescript**: Type safety
+- **Testnet Only** - Currently operates on Sepolia testnet for safety
+- **Input Validation** - All inputs are validated and sanitized
+- **Error Handling** - Comprehensive error handling and logging
+- **Rate Limiting** - Built-in caching to prevent abuse
 
-## 🚨 Important Notes
+## Development Status
 
-1. **Testnet Only**: Currently configured for Sepolia testnet
-2. **API Key Required**: You need an Alchemy API key
-3. **ENS Resolution**: Works with any valid ENS name
-4. **Caching**: SVGs are cached for 5 minutes
-5. **Rate Limits**: Subject to Alchemy API rate limits
+- Core functionality implemented
+- ENS integration working
+- PYUSD balance tracking
+- Donation system with MetaMask
+- Transaction tracking and statistics
+- Multiple themes and styling
+- Serverless deployment ready
 
-## 🔗 Links
+## Contributing
 
-- [Vercel](https://vercel.com) - Deployment platform
-- [Alchemy](https://alchemy.com) - Ethereum RPC provider
-- [viem](https://viem.sh) - TypeScript Ethereum library
-- [ENS](https://ens.domains) - Ethereum Name Service
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## 📄 License
+## License
 
-MIT License - feel free to use this project!
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
----
+## Acknowledgments
 
-**Made with ❤️ for the Ethereum community**
+- **PayPal** for PYUSD stablecoin
+- **Ethereum Foundation** for ENS
+- **Vercel** for serverless hosting
+- **Alchemy** for blockchain infrastructure
+- **Viem** for excellent TypeScript Ethereum library
+
+## Support
+
+- Create an issue for bug reports
+- Start a discussion for feature requests
+- Check the documentation for common questions

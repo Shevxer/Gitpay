@@ -238,7 +238,7 @@ async function generateDashboardSVG(address: string, stats: {
     <!-- Received Section -->
     <g transform="translate(0, 0)">
       <!-- Downward arrow SVG icon for received -->
-      <path d="M10 5 L20 15 L15 15 L15 25 L5 25 L5 15 L0 15 Z" fill="${theme.receivedColor}" transform="rotate(180 10 15)" ${style === 'neon' ? 'filter="url(#glow)"' : ''}/>
+      <path d="M8 3 L16 11 L12 11 L12 17 L4 17 L4 11 L0 11 Z" fill="${theme.receivedColor}" transform="rotate(180 8 11)" ${style === 'neon' ? 'filter="url(#glow)"' : ''}/>
       <text x="25" y="20" font-family="Arial, sans-serif" font-size="16" fill="${theme.receivedColor}" font-weight="bold" ${style === 'neon' ? 'filter="url(#glow)"' : ''}>
         Received
       </text>
@@ -253,7 +253,7 @@ async function generateDashboardSVG(address: string, stats: {
     <!-- Donated Section -->
     <g transform="translate(350, 0)">
       <!-- Upward arrow SVG icon for donated -->
-      <path d="M10 5 L20 15 L15 15 L15 25 L5 25 L5 15 L0 15 Z" fill="${theme.donatedColor}" ${style === 'neon' ? 'filter="url(#glow)"' : ''}/>
+      <path d="M8 3 L16 11 L12 11 L12 17 L4 17 L4 11 L0 11 Z" fill="${theme.donatedColor}" ${style === 'neon' ? 'filter="url(#glow)"' : ''}/>
       <text x="25" y="20" font-family="Arial, sans-serif" font-size="16" fill="${theme.donatedColor}" font-weight="bold" ${style === 'neon' ? 'filter="url(#glow)"' : ''}>
         Donated
       </text>
@@ -282,8 +282,8 @@ async function generateDashboardSVG(address: string, stats: {
       
       return `
         <g transform="translate(0, ${35 + i * 20})">
-          <path d="M5 5 L10 10 L8 10 L8 12 L2 12 L2 10 L0 10 Z" fill="${isReceived ? theme.receivedColor : theme.donatedColor}" ${style === 'neon' ? 'filter="url(#glow)"' : ''}/>
-          <text x="15" y="12" font-family="Arial, sans-serif" font-size="11" fill="${isReceived ? theme.receivedColor : theme.donatedColor}" ${style === 'neon' ? 'filter="url(#glow)"' : ''}>
+          <path d="M3 3 L6 6 L5 6 L5 8 L1 8 L1 6 L0 6 Z" fill="${isReceived ? theme.receivedColor : theme.donatedColor}" ${isReceived ? 'transform="rotate(180 3 5)"' : ''} ${style === 'neon' ? 'filter="url(#glow)"' : ''}/>
+          <text x="10" y="9" font-family="Arial, sans-serif" font-size="11" fill="${isReceived ? theme.receivedColor : theme.donatedColor}" ${style === 'neon' ? 'filter="url(#glow)"' : ''}>
             ${amount} PYUSD ${isReceived ? 'from' : 'to'} ${otherDisplay} (${timeAgo})
           </text>
         </g>
