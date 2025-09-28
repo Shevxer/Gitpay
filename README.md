@@ -182,14 +182,6 @@ function generateStatsSVG(ens: string, address: string, balance: number, style: 
 
 ## Architecture
 
-The system consists of several key components:
-
-1. **Dynamic SVG Engine** - Server-side SVG generation with real-time data binding
-2. **API Layer** - Vercel serverless functions handling all endpoints
-3. **Blockchain Layer** - Viem client for Ethereum interactions
-4. **Data Layer** - Alchemy RPC for blockchain data access
-5. **Integration Layer** - MetaMask wallet integration
-
 ### System Overview
 
 ```mermaid
@@ -200,10 +192,10 @@ graph TB
         A --> D[Dashboard]
     end
     
-    subgraph "API Layer (Vercel Serverless)"
-        E[/api/ens-stats] --> F[ENS Resolution]
-        G[/api/donate] --> H[Donation Page]
-        I[/api/dashboard] --> J[Transaction Stats]
+    subgraph "API Layer"
+        E[ens-stats API] --> F[ENS Resolution]
+        G[donate API] --> H[Donation Page]
+        I[dashboard API] --> J[Transaction Stats]
     end
     
     subgraph "Blockchain Layer"
@@ -229,6 +221,14 @@ graph TB
     O --> R
     P --> R
 ```
+
+The system consists of several key components:
+
+1. **Dynamic SVG Engine** - Server-side SVG generation with real-time data binding
+2. **API Layer** - Vercel serverless functions handling all endpoints
+3. **Blockchain Layer** - Viem client for Ethereum interactions
+4. **Data Layer** - Alchemy RPC for blockchain data access
+5. **Integration Layer** - MetaMask wallet integration
 
 ## Security Features
 
