@@ -193,7 +193,7 @@ graph TB
     end
     
     subgraph "API Layer"
-        E[ens-stats API] --> F[ENS Resolution]
+        E[ens-stats API] --> F[ENS Resolution/Token Balance]
         G[donate API] --> H[Donation Page]
         I[dashboard API] --> J[Transaction Stats]
     end
