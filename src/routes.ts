@@ -113,43 +113,103 @@ function generateStatsSVG(ens: string, address: string, balance: number, style: 
 </svg>`.trim();
 }
 
-function generateDonateSVG(ens: string, address: string, amount: string): string {
+function generateDonateSVG(ens: string, address: string, amount: string, style: 'light' | 'dark' | 'neon' = 'light'): string {
   const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
   
+  // Theme configurations
+  const themes = {
+    light: {
+      background: '#ffffff',
+      cardBg: '#f8fafc',
+      border: '#e2e8f0',
+      primaryText: '#1e293b',
+      secondaryText: '#64748b',
+      accentText: '#059669',
+      buttonBg: '#3b82f6',
+      buttonText: '#ffffff',
+      shadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+    },
+    dark: {
+      background: '#0f172a',
+      cardBg: '#1e293b',
+      border: '#334155',
+      primaryText: '#f1f5f9',
+      secondaryText: '#cbd5e1',
+      accentText: '#10b981',
+      buttonBg: '#6366f1',
+      buttonText: '#ffffff',
+      shadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+    },
+    neon: {
+      background: '#0a0a0a',
+      cardBg: '#111111',
+      border: '#00ff88',
+      primaryText: '#00ff88',
+      secondaryText: '#88ff88',
+      accentText: '#ff0088',
+      buttonBg: '#ff0088',
+      buttonText: '#000000',
+      shadow: '0 0 20px rgba(0, 255, 136, 0.3)'
+    }
+  };
+
+  const theme = themes[style];
+  
   return `
-<svg width="400" height="120" xmlns="http://www.w3.org/2000/svg">
+<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:${theme.background};stop-opacity:1" />
+      <stop offset="100%" style="stop-color:${theme.cardBg};stop-opacity:1" />
     </linearGradient>
+    ${style === 'neon' ? `
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    ` : ''}
   </defs>
   
-  <rect width="400" height="120" fill="url(#bg)" rx="8"/>
+  <rect width="200" height="200" fill="url(#bg)" rx="10" stroke="${theme.border}" stroke-width="2"/>
+  ${style === 'neon' ? `<rect width="200" height="200" fill="none" rx="10" stroke="${theme.border}" stroke-width="1" opacity="0.5"/>` : ''}
   
-  <!-- Donate Button -->
-  <text x="200" y="35" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white" text-anchor="middle">
-    Donate ${amount} PYUSD
+  <!-- Header -->
+  <text x="100" y="40" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="${theme.primaryText}" text-anchor="middle" ${style === 'neon' ? 'filter="url(#glow)"' : ''}>
+    Donate
   </text>
   
-  <!-- ENS -->
-  <text x="200" y="55" font-family="Arial, sans-serif" font-size="14" fill="#e0e0e0" text-anchor="middle">
+  <!-- Amount -->
+  <text x="100" y="70" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="${theme.accentText}" text-anchor="middle" ${style === 'neon' ? 'filter="url(#glow)"' : ''}>
+    ${amount} PYUSD
+  </text>
+  
+  <!-- ENS Name -->
+  <text x="100" y="100" font-family="Arial, sans-serif" font-size="14" fill="${theme.secondaryText}" text-anchor="middle" ${style === 'neon' ? 'filter="url(#glow)"' : ''}>
     to ${ens}
   </text>
   
   <!-- Address -->
-  <text x="200" y="75" font-family="Arial, sans-serif" font-size="12" fill="#c0c0c0" text-anchor="middle">
+  <text x="100" y="125" font-family="Arial, sans-serif" font-size="10" fill="${theme.secondaryText}" text-anchor="middle" ${style === 'neon' ? 'filter="url(#glow)"' : ''}>
     ${shortAddress}
   </text>
   
+  <!-- PYUSD Logo -->
+  <g transform="translate(100, 150)">
+    <circle cx="0" cy="0" r="15" fill="${theme.accentText}" opacity="0.2"/>
+    <text x="0" y="5" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="${theme.accentText}" text-anchor="middle" ${style === 'neon' ? 'filter="url(#glow)"' : ''}>P</text>
+  </g>
+  
   <!-- Click indicator -->
-  <text x="200" y="95" font-family="Arial, sans-serif" font-size="10" fill="#a0a0a0" text-anchor="middle">
-    Click to open donation page
+  <text x="100" y="185" font-family="Arial, sans-serif" font-size="10" fill="${theme.secondaryText}" text-anchor="middle" ${style === 'neon' ? 'filter="url(#glow)"' : ''}>
+    Click to donate
   </text>
   
   <!-- Clickable area linking to donation page -->
   <a href="/donate?ens=${encodeURIComponent(ens)}&amp;amount=${encodeURIComponent(amount)}" target="_blank">
-    <rect width="400" height="120" fill="transparent" style="cursor: pointer;"/>
+    <rect width="200" height="200" fill="transparent" style="cursor: pointer;"/>
   </a>
 </svg>`.trim();
 }
@@ -159,8 +219,8 @@ export function healthCheck(req: Request, res: Response) {
   res.json({ 
     message: 'GitPay API is running!', 
     endpoints: [
-      'GET /api/ens-stats?ens=yourname.eth',
-      'GET /api/donate?ens=yourname.eth&amount=10',
+      'GET /api/ens-stats?ens=yourname.eth&style=light|dark|neon',
+      'GET /api/donate?ens=yourname.eth&amount=10&style=light|dark|neon',
       'GET /api/transactions - Get all GitPay transactions',
       'GET /api/transactions/:address - Get transactions for specific address',
       'GET /api/transactions/stats - Get transaction statistics',
@@ -224,10 +284,16 @@ export async function ensStats(req: Request, res: Response) {
 
 // Donate endpoint - returns SVG button
 export async function donate(req: Request, res: Response) {
-  const { ens, amount = '10', method = 'pyusd' } = req.query;
+  const { ens, amount = '10', method = 'pyusd', style = 'light' } = req.query;
 
   if (!ens || typeof ens !== 'string') {
     return res.status(400).json({ error: 'ENS name is required' });
+  }
+
+  // Validate style parameter
+  const validStyles = ['light', 'dark', 'neon'];
+  if (typeof style !== 'string' || !validStyles.includes(style)) {
+    return res.status(400).json({ error: 'Invalid style. Must be one of: light, dark, neon' });
   }
 
   try {
@@ -250,7 +316,7 @@ export async function donate(req: Request, res: Response) {
     let svg: string;
 
     if (method === 'pyusd') {
-      svg = generateDonateSVG(ens, address, amount as string);
+      svg = generateDonateSVG(ens, address, amount as string, style as 'light' | 'dark' | 'neon');
     } else {
       return res.status(400).json({ error: 'Invalid method. Use "pyusd"' });
     }
