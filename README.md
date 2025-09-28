@@ -15,6 +15,7 @@
 
 GitPay is a decentralized payment system that enables seamless donations and payments using ENS (Ethereum Name Service) names and PYUSD (PayPal USD) stablecoin. Just add it in markdown, and it's good to go!
 
+> **NOTE**: due to too many alchemy requests the dashboard api is temporarily not working 🚧
 ## Features
 
 - **Dynamic SVG Generation**: Real-time, server-side generated SVG badges and components
